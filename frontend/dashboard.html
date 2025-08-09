@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>🛠️ Admin Dashboard</h2>
+    <nav>
+      <a href="report.html">View Reports</a>
+      <a href="#manage-users">Manage Users</a>
+      <a href="#manage-exams">Manage Exams</a>
+      <button onclick="logout()" class="logout">Logout</button>
+    </nav>
+
+    <!-- Manage Users Section -->
+    <section id="manage-users">
+      <h3>➕ Add User</h3>
+      <input type="text" id="newUsername" placeholder="Username" />
+      <input type="password" id="newPassword" placeholder="Password" />
+      <select id="newRole">
+        <option value="student">Student</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button onclick="addUser()">Create User</button>
+
+      <h3>👥 All Users</h3>
+      <table id="usersTable" border="1" width="100%">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </section>
+
+    <section id="manage-exams">
+      <h3>📋 Create Exam</h3>
+      <input type="text" id="examTitle" placeholder="Exam Title" />
+      <button onclick="createExam()">Create Exam</button>
+    </section>
+  </div>
+
+  <!-- ✅ Edit User Modal -->
+  <div id="editUserModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3>Edit User</h3>
+      <label>Username:
+        <input type="text" id="modalUsername" />
+      </label><br><br>
+      <label>Role:
+        <select id="modalRole">
+          <option value="student">Student</option>
+          <option value="admin">Admin</option>
+        </select>
+      </label><br><br>
+      <label>Password (leave blank to keep):
+        <input type="password" id="modalPassword" />
+      </label><br><br>
+      <button onclick="saveUserFromModal()">Save</button>
+      <button onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Modal Styles -->
+  <style>
+    .modal {
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .modal input, .modal select {
+      width: 100%;
+      padding: 8px;
+      margin: 4px 0;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <!-- ✅ Load external JS only -->
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
