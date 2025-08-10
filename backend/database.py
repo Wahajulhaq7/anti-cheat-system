@@ -29,11 +29,27 @@ def get_db():
     finally:
         db.close()
 
+# Initialize DB (create table if not exists)
+def init_db():
+    with engine.connect() as conn:
+        conn.execute(text("""
+            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
+            CREATE TABLE Users (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20) NOT NULL,
+                created_at DATETIME DEFAULT GETDATE(),
+                CONSTRAINT CK_Users_Role CHECK (role IN ('student', 'admin', 'invigilator'))
+            )
+        """))
+        conn.commit()
+
 # Test connection
 def test_connection():
     try:
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT 1"))
+            conn.execute(text("SELECT 1"))
             print("✅ Database connected!")
             return True
     except Exception as e:

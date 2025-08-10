@@ -1,0 +1,165 @@
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.modal-content div {
+    margin-bottom: 15px;
+}
+
+.modal-content input,
+.modal-content select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+select, input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.detection-alert {
+    background-color: #fff3f3;
+    border: 1px solid #ffcdd2;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+#studentMonitoring {
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+}
+
+#examResults table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+#examResults th,
+#examResults td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#examResults th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+select[data-field="role"] {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+}
+
+.btn-edit, .btn-delete {
+    padding: 5px 10px;
+    margin: 0 5px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-edit {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-delete {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.btn-delete:hover {
+    background-color: #c82333;
+}
+
+/* Invigilator Dashboard Styles */
+.dashboard-nav {
+    background: #2c3e50;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-content {
+    padding: 2rem;
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.exam-section, .monitoring-section, .detections-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.exam-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.exam-form input, 
+.exam-form textarea {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.exam-card {
+    background: #f8f9fa;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.detections-list {
+    max-height: 400px;
+    overflow-y: auto;
+}

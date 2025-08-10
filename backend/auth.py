@@ -1,177 +1,179 @@
 # backend/auth.py
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy import text
+from fastapi import APIRouter, HTTPException, Depends, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import UserCreate, UserLogin
-from backend.utils import hash_password, verify_password, create_access_token
+from sqlalchemy import text
+from .database import get_db
+from .models import UserCreate, UserLogin, UserUpdate
+from .utils import hash_password, verify_password, create_access_token
+import os
+from jose import jwt, JWTError
 
-print("✅ Auth module loaded!")
+# ✅ Ensure router uses correct prefix
+router = APIRouter(prefix="", tags=["Auth"])  # Remove "/auth" here to avoid double prefix
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+security = HTTPBearer()
+
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here-change-in-production")
+ALGORITHM = "HS256"
 
 
-# --- Login ---
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        role = payload.get("role")
+
+        if not username or not role:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        valid_roles = ['admin', 'student', 'invigilator']
+        if role.lower() not in valid_roles:
+            raise HTTPException(status_code=403, detail="Unauthorized role")
+
+        return {"username": username, "role": role.lower()}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+# ✅ POST /auth/login
 @router.post("/login")
-def login(data: UserLogin):
-    query = text("SELECT id, password_hash, role FROM Users WHERE username = :username")
-    with get_db().bind.connect() as conn:
-        result = conn.execute(query, {"username": data.username}).fetchone()
+async def login(data: UserLogin, db: Session = Depends(get_db)):
+    print(f"🔍 Login attempt: {data.username}")
+
+    result = db.execute(
+        text("SELECT id, username, password_hash, role FROM Users WHERE username = :username"),
+        {"username": data.username}
+    ).fetchone()
 
     if not result or not verify_password(data.password, result.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    role_lower = result.role.strip().lower()
+    if role_lower not in ['admin', 'student', 'invigilator']:
+        raise HTTPException(status_code=403, detail="Invalid role")
+
     token = create_access_token({
-        "sub": data.username,
+        "sub": result.username,
         "id": result.id,
-        "role": result.role
+        "role": role_lower
     })
 
+    print(f"✅ Login success: {result.username} ({role_lower})")
     return {
         "access_token": token,
         "token_type": "bearer",
         "id": result.id,
-        "role": result.role
+        "role": role_lower
     }
 
 
-# --- Register ---
+# ✅ POST /register
 @router.post("/register")
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    if user.role not in ['student', 'admin']:
-        raise HTTPException(status_code=400, detail="Invalid role. Must be 'student' or 'admin'.")
+async def register(user: UserCreate, db: Session = Depends(get_db)):
+    role = user.role.strip().lower()
+    if role not in ['admin', 'student', 'invigilator']:
+        raise HTTPException(status_code=400, detail="Invalid role")
 
-    # Check if username exists
-    check = text("SELECT 1 FROM Users WHERE username = :username")
-    if db.execute(check, {"username": user.username}).fetchone():
-        raise HTTPException(status_code=400, detail="Username already exists.")
-
-    hashed_password = hash_password(user.password)
-    query = text("""
-        INSERT INTO Users (username, password_hash, role)
-        VALUES (:username, :password_hash, :role)
-    """)
+    if db.execute(
+        text("SELECT 1 FROM Users WHERE username = :username"),
+        {"username": user.username}
+    ).scalar():
+        raise HTTPException(status_code=400, detail="Username already exists")
 
     try:
-        db.execute(query, {
-            "username": user.username,
-            "password_hash": hashed_password,
-            "role": user.role
-        })
-        db.commit()
-        return {"msg": f"User '{user.username}' created successfully!"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create user")
+        hashed = hash_password(user.password)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Hashing failed")
 
-
-# --- Get All Users ---
-# backend/auth.py
-
-@router.get("/users")
-def get_users(db: Session = Depends(get_db)):
-    query = text("SELECT id, username, role FROM Users")
-    result = db.execute(query).fetchall()
-    
-    # Log what's being sent to the frontend
-    print("Sending users:", result)
-    
-    return [{"id": r.id, "username": r.username, "role": r.role} for r in result]
-
-# --- Update User ---
-@router.put("/users/{user_id}")
-def update_user(
-    user_id: int,
-    username: str = None,
-    password: str = None,
-    role: str = None,
-    db: Session = Depends(get_db)
-):
-    # 🔍 Check if user exists
-    query = text("SELECT username, password_hash, role FROM Users WHERE id = :id")
-    result = db.execute(query, {"id": user_id}).fetchone()
-    if not result:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # ✅ Only update username if explicitly provided (even if empty)
-    new_username = username if username is not None else result.username
-
-    # Prevent duplicate username
-    if new_username != result.username:
-        check = text("SELECT 1 FROM Users WHERE username = :username AND id != :id")
-        if db.execute(check, {"username": new_username, "id": user_id}).fetchone():
-            raise HTTPException(status_code=400, detail="Username already exists")
-
-    # Hash password if provided
-    new_password_hash = hash_password(password) if password else result.password_hash
-
-    # Only update role if provided
-    new_role = role if role is not None else result.role
-
-    # 🔧 Log actual values going to DB
-    print(f"🎯 Updating user {user_id}:")
-    print(f"   - Username: {result.username} → {new_username}")
-    print(f"   - Role: {result.role} → {new_role}")
-
-    # ✅ Update user
-    update = text("""
-        UPDATE Users 
-        SET username = :username, 
-            password_hash = :password_hash, 
-            role = :role
-        WHERE id = :id
-    """)
-    db.execute(update, {
-        "id": user_id,
-        "username": new_username,
-        "password_hash": new_password_hash,
-        "role": new_role
-    })
+    result = db.execute(
+        text("""
+            INSERT INTO Users (username, password_hash, role, created_at)
+            OUTPUT INSERTED.id
+            VALUES (:username, :password_hash, :role, GETDATE())
+        """),
+        {"username": user.username, "password_hash": hashed, "role": role}
+    )
+    new_id = result.scalar()
     db.commit()
 
-    return {"msg": "User updated"}
+    return {"id": new_id, "username": user.username, "role": role}
 
 
-# --- Delete User ---
+# ✅ GET /users
+@router.get("/users")
+async def get_users(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+
+    users = db.execute(text("SELECT id, username, role FROM Users")).fetchall()
+    return [{"id": u.id, "username": u.username, "role": u.role} for u in users]
+
+
+# ✅ PUT /users/{user_id}
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    user: UserUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+
+    updates = {}
+    if user.username:
+        if db.execute(
+            text("SELECT 1 FROM Users WHERE username = :username AND id != :id"),
+            {"username": user.username, "id": user_id}
+        ).scalar():
+            raise HTTPException(status_code=400, detail="Username taken")
+        updates["username"] = user.username
+
+    if user.password:
+        updates["password_hash"] = hash_password(user.password)
+
+    if user.role:
+        role = user.role.strip().lower()
+        if role not in ['admin', 'student', 'invigilator']:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        updates["role"] = role
+
+    if not updates:
+        return {"message": "No changes"}
+
+    set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+    db.execute(
+        text(f"UPDATE Users SET {set_clause} WHERE id = :user_id"),
+        {**updates, "user_id": user_id}
+    )
+    db.commit()
+    return {"message": "Updated"}
+
+
+# ✅ DELETE /users/{user_id}
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    try:
-        # 🔍 Check if user exists
-        user = db.execute(text("SELECT id FROM Users WHERE id = :id"), {"id": user_id}).fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+async def delete_user(
+    user_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
 
-        # ✅ List of related tables
-        related_tables = [
-            "ScreenLogs",
-            "Movements",
-            "ExamResults",
-            "UserExams",
-            "Logs",
-            "VideoFeed"
-        ]
+    user = db.execute(
+        text("SELECT role FROM Users WHERE id = :id"),
+        {"id": user_id}
+    ).fetchone()
 
-        # 🧹 Delete from related tables
-        for table in related_tables:
-            try:
-                db.execute(text(f"DELETE FROM {table} WHERE user_id = :id"), {"id": user_id})
-                print(f"✅ Cleared {table} for user {user_id}")
-            except Exception as e:
-                print(f"⚠️  Failed to clear {table}: {str(e)}")
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # ✅ Delete user
-        result = db.execute(text("DELETE FROM Users WHERE id = :id"), {"id": user_id})
-        db.commit()
+    if user.role == 'admin':
+        count = db.execute(text("SELECT COUNT(*) FROM Users WHERE role = 'admin'")).scalar()
+        if count <= 1:
+            raise HTTPException(status_code=400, detail="Can't delete last admin")
 
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        return {"msg": "User and all related data deleted successfully"}
-
-    except Exception as e:
-        db.rollback()
-        print("❌ Delete failed:", str(e))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to delete user: {str(e)}"
-        )
+    db.execute(text("DELETE FROM Users WHERE id = :id"), {"id": user_id})
+    db.commit()
+    return {"message": "Deleted"}
