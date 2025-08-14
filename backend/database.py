@@ -2,6 +2,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import DB_SERVER, DB_NAME
+from .models import Base
 
 # Connection string using Windows Authentication
 conn_str = (

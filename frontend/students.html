@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student List</title>
+  <link rel="stylesheet" href="css/students.css" />
+</head>
+<body>
+  <!-- students.html -->
+<nav class="nav-bar">
+  <h1>👥 All Students</h1>
+  <div class="user-info">
+    <span id="username"></span>
+    <button onclick="logout()" class="btn-logout">Logout</button>
+  </div>
+</nav>
+
+<!-- Add the Back Button -->
+<div class="container">
+  <button onclick="goBack()" class="btn-back">← Back to Dashboard</button>
+
+  <h2>Registered Students</h2>
+  <p>Total: <strong id="totalStudents">0</strong></p>
+
+  <table id="studentsTable" class="students-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="4" class="placeholder">Loading students...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+  <script src="js/students.js"></script>
+</body>
+</html>

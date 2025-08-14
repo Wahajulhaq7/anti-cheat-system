@@ -61,24 +61,8 @@ document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
   // Clear previous error
   error.textContent = "";
 
-  // frontend/js/auth.js
-
-const API_BASE = "http://localhost:8000"; // Base URL without specific endpoints
-const LOGIN_URL = `${API_BASE}/auth/login`; // Correctly builds /auth/login
-
-document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const username = document.getElementById("username")?.value.trim();
-  const password = document.getElementById("password")?.value;
-  const error = document.getElementById("error");
-
-  if (!username || !password) {
-    error.textContent = "Please enter both username and password";
-    return;
-  }
-
-  error.textContent = "";
+  const API_BASE = "http://localhost:8000";
+  const LOGIN_URL = `${API_BASE}/auth/login`;
 
   try {
     console.log("Attempting login with:", { username });
@@ -86,45 +70,66 @@ document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
     const res = await fetch(LOGIN_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
       },
       body: JSON.stringify({ username, password })
     });
 
+    // Log status for debugging
+    console.log("Login response status:", res.status);
+
     if (!res.ok) {
-      const errData = await res.json();
-      error.textContent = errData.detail || "Invalid credentials";
+      const errorText = await res.text();
+      console.error("Login failed:", errorText);
+      try {
+        const errData = JSON.parse(errorText);
+        error.textContent = errData.detail || "Invalid credentials";
+      } catch {
+        error.textContent = "Login failed: Server returned an error.";
+      }
       return;
     }
 
     const data = await res.json();
-    console.log("Login response:", data);
+    console.log("Login response data:", data);
 
+    // ✅ Validate role
     const role = data.role?.toLowerCase()?.trim();
     const validRoles = ['admin', 'student', 'invigilator'];
 
     if (!role || !validRoles.includes(role)) {
-      throw new Error("Invalid or missing role");
+      throw new Error(`Invalid or missing role: '${role}'`);
     }
 
+    // ✅ Save to localStorage
     localStorage.setItem("token", data.access_token);
     localStorage.setItem("username", username);
     localStorage.setItem("user_id", data.id);
     localStorage.setItem("role", role);
 
+    // ✅ Redirect based on role
     if (role === 'admin') {
+      console.log("✅ Admin login successful → Redirecting to dashboard.html");
       window.location.href = "dashboard.html";
     } else if (role === 'student') {
+      console.log("✅ Student login successful → Redirecting to student.html");
+      localStorage.removeItem("current_exam_id");
       window.location.href = "student.html";
     } else if (role === 'invigilator') {
+      console.log("✅ Invigilator login successful → Redirecting to invigilator.html");
       window.location.href = "invigilator.html";
     }
+
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("🔐 Login error:", err);
     localStorage.clear();
-    alert("Access denied: Unknown role or server error. Please contact admin.");
+    alert(
+      "Login failed. " +
+      (err.message.includes("Invalid or missing role")
+        ? "User role not recognized. Contact admin."
+        : "Check your connection or try again.")
+    );
     window.location.href = "login.html";
   }
-}
-)
 });

@@ -1,30 +1,45 @@
 # backend/exam.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import ExamCreate
-from sqlalchemy import text
+from .database import get_db
+from .models import Exam, Question, ExamCreate, MCQCreate
 
-router = APIRouter(prefix="/exam", tags=["Exams"])
+router = APIRouter(prefix="/exam", tags=["Exam"])
 
 @router.post("/create")
-def create_exam(exam: ExamCreate, db: Session = Depends(get_db)):
-    query = text("""
-        INSERT INTO Exams (title, description, start_time, end_time, duration_minutes, created_by)
-        VALUES (:title, :description, :start_time, :end_time, :duration_minutes, :created_by)
-    """)
-    
+async def create_exam(exam_data: ExamCreate, db: Session = Depends(get_db)):
     try:
-        result = db.execute(query, {
-            "title": exam.title,
-            "description": exam.description,
-            "start_time": exam.start_time,
-            "end_time": exam.end_time,
-            "duration_minutes": exam.duration_minutes,
-            "created_by": exam.created_by
-        })
+        # Create exam
+        db_exam = Exam(
+            title=exam_data.title,
+            description=exam_data.description,
+            start_time=exam_data.start_time,
+            end_time=exam_data.end_time,
+            duration_minutes=exam_data.duration_minutes,
+            created_by=exam_data.created_by
+        )
+        db.add(db_exam)
         db.commit()
-        return {"msg": "Exam created"}
+        db.refresh(db_exam)
+
+        # Create questions
+        for mcq in exam_data.mcqs:
+            db_question = Question(
+                exam_id=db_exam.id,
+                question_text=mcq.question_text,
+                options=mcq.options,
+                correct_option=mcq.correct_option
+            )
+            db.add(db_question)
+        db.commit()
+
+        return {
+            "message": "Exam created successfully",
+            "exam_id": db_exam.id,
+            "title": db_exam.title,
+            "question_count": len(exam_data.mcqs)
+        }
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to create exam: {str(e)}")

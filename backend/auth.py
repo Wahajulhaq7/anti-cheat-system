@@ -9,8 +9,8 @@ from .utils import hash_password, verify_password, create_access_token
 import os
 from jose import jwt, JWTError
 
-# ✅ Ensure router uses correct prefix
-router = APIRouter(prefix="", tags=["Auth"])  # Remove "/auth" here to avoid double prefix
+# ✅ Router: No prefix here (handled in main.py)
+router = APIRouter(tags=["Auth"])
 
 security = HTTPBearer()
 
@@ -18,6 +18,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here-change-in-produ
 ALGORITHM = "HS256"
 
 
+# Dependency: Get current user from JWT
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)):
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
@@ -25,18 +26,30 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(
         role = payload.get("role")
 
         if not username or not role:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token: missing claims")
 
         valid_roles = ['admin', 'student', 'invigilator']
-        if role.lower() not in valid_roles:
+        role_lower = role.lower().strip()
+
+        if role_lower not in valid_roles:
             raise HTTPException(status_code=403, detail="Unauthorized role")
 
-        return {"username": username, "role": role.lower()}
+        return {"username": username, "role": role_lower}
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
-# ✅ POST /auth/login
+# Dependency: Admin can see all users, invigilator only students
+async def get_admin_or_invigilator(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "invigilator"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: Only admins and invigilators can view users"
+        )
+    return current_user
+
+
+# ✅ POST /login
 @router.post("/login")
 async def login(data: UserLogin, db: Session = Depends(get_db)):
     print(f"🔍 Login attempt: {data.username}")
@@ -50,7 +63,8 @@ async def login(data: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     role_lower = result.role.strip().lower()
-    if role_lower not in ['admin', 'student', 'invigilator']:
+    valid_roles = ['admin', 'student', 'invigilator']
+    if role_lower not in valid_roles:
         raise HTTPException(status_code=403, detail="Invalid role")
 
     token = create_access_token({
@@ -100,17 +114,33 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
     return {"id": new_id, "username": user.username, "role": role}
 
 
-# ✅ GET /users
-@router.get("/users")
+# ✅ GET /users - Admin sees all users, Invigilator sees only students
+@router.get("/users", dependencies=[Depends(get_admin_or_invigilator)])
 async def get_users(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admins only")
+    """
+    Returns:
+    - All users if current user is admin
+    - Only students if current user is invigilator
+    """
+    if current_user["role"] == "admin":
+        query = text("SELECT id, username, role FROM Users ORDER BY role, username")
+        result = db.execute(query).fetchall()
+        users = [{"id": row.id, "username": row.username, "role": row.role} for row in result]
+        print(f"✅ Admin fetched {len(users)} users")
+        return users
 
-    users = db.execute(text("SELECT id, username, role FROM Users")).fetchall()
-    return [{"id": u.id, "username": u.username, "role": u.role} for u in users]
+    elif current_user["role"] == "invigilator":
+        query = text("SELECT id, username, role FROM Users WHERE role = 'student' ORDER BY username")
+        result = db.execute(query).fetchall()
+        students = [{"id": row.id, "username": row.username, "role": row.role} for row in result]
+        print(f"✅ Invigilator fetched {len(students)} students")
+        return students
+
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
 
 
-# ✅ PUT /users/{user_id}
+# ✅ PUT /users/{user_id} - Admin only
 @router.put("/users/{user_id}")
 async def update_user(
     user_id: int,
@@ -119,15 +149,19 @@ async def update_user(
     db: Session = Depends(get_db)
 ):
     if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admins only")
+        raise HTTPException(status_code=403, detail="Only admins can update users")
+
+    # Fetch existing user
+    query = text("SELECT username, role FROM Users WHERE id = :id")
+    result = db.execute(query, {"id": user_id}).fetchone()
+    if not result:
+        raise HTTPException(status_code=404, detail="User not found")
 
     updates = {}
     if user.username:
-        if db.execute(
-            text("SELECT 1 FROM Users WHERE username = :username AND id != :id"),
-            {"username": user.username, "id": user_id}
-        ).scalar():
-            raise HTTPException(status_code=400, detail="Username taken")
+        check = text("SELECT 1 FROM Users WHERE username = :username AND id != :id")
+        if db.execute(check, {"username": user.username, "id": user_id}).scalar():
+            raise HTTPException(status_code=400, detail="Username already exists")
         updates["username"] = user.username
 
     if user.password:
@@ -140,18 +174,17 @@ async def update_user(
         updates["role"] = role
 
     if not updates:
-        return {"message": "No changes"}
+        return {"message": "No changes to apply"}
 
     set_clause = ", ".join(f"{k} = :{k}" for k in updates)
-    db.execute(
-        text(f"UPDATE Users SET {set_clause} WHERE id = :user_id"),
-        {**updates, "user_id": user_id}
-    )
+    update_query = text(f"UPDATE Users SET {set_clause} WHERE id = :user_id")
+    db.execute(update_query, {**updates, "user_id": user_id})
     db.commit()
-    return {"message": "Updated"}
+
+    return {"message": "User updated successfully"}
 
 
-# ✅ DELETE /users/{user_id}
+# ✅ DELETE /users/{user_id} - Admin only
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
@@ -159,21 +192,23 @@ async def delete_user(
     db: Session = Depends(get_db)
 ):
     if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admins only")
+        raise HTTPException(status_code=403, detail="Only admins can delete users")
 
-    user = db.execute(
-        text("SELECT role FROM Users WHERE id = :id"),
-        {"id": user_id}
-    ).fetchone()
-
+    # Check if user exists
+    query = text("SELECT role FROM Users WHERE id = :id")
+    user = db.execute(query, {"id": user_id}).fetchone()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Prevent deleting the last admin
     if user.role == 'admin':
-        count = db.execute(text("SELECT COUNT(*) FROM Users WHERE role = 'admin'")).scalar()
-        if count <= 1:
-            raise HTTPException(status_code=400, detail="Can't delete last admin")
+        admin_count = db.execute(text("SELECT COUNT(*) FROM Users WHERE role = 'admin'")).scalar()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last admin user")
 
-    db.execute(text("DELETE FROM Users WHERE id = :id"), {"id": user_id})
+    # Delete the user
+    delete_query = text("DELETE FROM Users WHERE id = :id")
+    db.execute(delete_query, {"id": user_id})
     db.commit()
-    return {"message": "Deleted"}
+
+    return {"message": "User deleted successfully"}

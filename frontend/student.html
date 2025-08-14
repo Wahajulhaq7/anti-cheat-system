@@ -1,48 +1,30 @@
+<!-- frontend/exams.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Dashboard</title>
+  <title>Available Exams</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- Navbar -->
+  <nav class="nav-bar">
+    <h1>📝 Available Exams</h1>
+    <div class="nav-buttons">
+      <button onclick="location.href='student.html'" class="btn-nav">📊 Results</button>
+      <button onclick="logout()" class="btn-logout">Logout</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
   <div class="container">
-    <h2>🎓 Student Dashboard</h2>
-
-    <!-- Available Exams -->
-    <section>
-      <h3>📚 Available Exams</h3>
-      <div id="exam-list">
-        <p>Loading exams...</p>
-      </div>
-    </section>
-
-    <!-- Exam Results -->
-    <section>
-      <h3>📊 Your Results</h3>
-      <div id="results-list">
-        <p>Loading results...</p>
-      </div>
-    </section>
-
-    <!-- Logout Button -->
-    <button onclick="logout()" class="btn-logout">Logout</button>
+    <h2>📚 Choose an Exam</h2>
+    <div id="exam-list">
+      <p>Loading exams...</p>
+    </div>
   </div>
 
-  <!-- ✅ Load student.js first -->
-  <script src="js/student.js"></script>
-
-  <!-- ✅ Then run your protection logic -->
-  <script>
-    // Prevent non-students from accessing student dashboard
-    const role = localStorage.getItem("role");
-    if (!role) {
-      window.location.href = "login.html";
-    } else if (role !== "student") {
-      alert("Access denied. Students only.");
-      window.location.href = "dashboard.html"; // Send admin back
-    }
-  </script>
+  <script src="js/exams.js"></script>
 </body>
 </html>

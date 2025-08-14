@@ -1,24 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Invigilator Dashboard</title>
-    <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invigilator Dashboard</title>
+  <link rel="stylesheet" href="css/invigilator.css" />
 </head>
 <body>
-    <nav class="nav-bar">
-        <h1>Invigilator Dashboard</h1>
-        <div class="user-info">
-            <span id="username"></span>
-            <button onclick="logout()">Logout</button>
-        </div>
-    </nav>
+  <!-- invigilator.html -->
+<nav class="nav-bar">
+  <h1>👮‍♂️ Invigilator Dashboard</h1>
+  <div class="nav-buttons">
+    <button onclick="location.href='students.html'" class="btn-nav">👥 Students</button>
+    <span id="username"></span>
+    <button onclick="logout()" class="btn-logout">Logout</button>
+  </div>
+</nav>
 
-    <div class="dashboard-content">
-        <h2>Welcome Invigilator</h2>
-        <!-- Add your invigilator dashboard content here -->
+  <div class="dashboard-container">
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Total Students</h3>
+        <p id="totalStudents">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Ongoing Exams</h3>
+        <p id="activeExamsCount">0</p>
+      </div>
+      <div class="stat-card warning">
+        <h3>Suspicious Activities</h3>
+        <p id="suspiciousCount">0</p>
+      </div>
     </div>
 
-    <script src="js/invigilator.js"></script>
+    <!-- Exam Management -->
+    <section class="exam-section">
+  <h2>Create MCQ Exam</h2>
+  <form id="examForm" onsubmit="createExam(event)">
+    <input type="text" id="examTitle" placeholder="Exam Title" required />
+    <textarea id="examDescription" placeholder="Description (optional)"></textarea>
+
+    <div id="questionsContainer">
+      <div class="question-block">
+        <h4>Question 1</h4>
+        <input type="text" class="question-text" placeholder="Question" required />
+        <input type="text" class="option" placeholder="Option A" required />
+        <input type="text" class="option" placeholder="Option B" required />
+        <input type="text" class="option" placeholder="Option C" required />
+        <input type="text" class="option" placeholder="Option D" required />
+        <select class="correct-option" required>
+          <option value="">Correct Option</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="button" onclick="addQuestion()" class="btn-secondary">+ Add Question</button>
+    <button type="submit" class="btn-primary">Create Exam</button>
+  </form>
+
+  <div id="examsList" class="exam-list">
+    <!-- Exams will be loaded here -->
+  </div>
+</section>
+
+    <!-- Live Monitoring -->
+    <section class="monitor-section">
+      <h2>Live Student Monitoring</h2>
+      <div id="studentGrid" class="student-grid">
+        <!-- Student feeds will appear here -->
+        <p class="placeholder">No active exam selected</p>
+      </div>
+    </section>
+
+    <!-- Alerts Panel -->
+    <section class="alerts-section">
+      <h2>Unusual Detections</h2>
+      <div id="alertsList" class="alerts-list">
+        <!-- Alerts will be added here -->
+        <p class="placeholder">No suspicious activity detected</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/invigilator.js"></script>
 </body>
 </html>

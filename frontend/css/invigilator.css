@@ -1,0 +1,238 @@
+/* invigilator.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f4f6f9;
+  color: #333;
+}
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: #2c3e50;
+  color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-info span {
+  font-weight: bold;
+}
+
+.btn-logout {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-logout:hover {
+  background: #c0392b;
+}
+
+.dashboard-container {
+  padding: 2rem;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border-left: 5px solid #3498db;
+}
+
+.stat-card.warning {
+  border-left-color: #e74c3c;
+}
+
+.stat-card h3 {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.stat-card p {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+/* Exam Section */
+.exam-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.exam-section h2 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+}
+
+#examForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#examForm input,
+#examForm textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+#examForm textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.btn-primary {
+  background: #27ae60;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.btn-primary:hover {
+  background: #219653;
+}
+
+.exam-list {
+  margin-top: 1rem;
+}
+
+.exam-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
+  background: #f9f9f9;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.exam-item button {
+  background: #9b59b6;
+  color: white;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.exam-item .btn-delete {
+  background: #e74c3c;
+}
+
+.exam-item .btn-monitor {
+  background: #3498db;
+}
+
+/* Monitoring Grid */
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  min-height: 200px;
+}
+
+.student-feed {
+  background: black;
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.student-feed video {
+  width: 100%;
+  border-radius: 4px;
+}
+
+.placeholder {
+  text-align: center;
+  color: #777;
+  padding: 2rem;
+}
+
+/* Alerts */
+.alerts-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.alerts-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 1rem;
+}
+
+.alert-item {
+  padding: 0.75rem;
+  background: #fdf2f2;
+  border-left: 4px solid #e74c3c;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.alert-item strong {
+  color: #c0392b;
+}
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-nav {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-nav:hover {
+  background: #2980b9;
+}

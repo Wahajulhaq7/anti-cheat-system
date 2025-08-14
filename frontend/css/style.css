@@ -92,3 +92,126 @@ video {
   border-radius: 4px;
   box-sizing: border-box;
 }
+/* frontend/css/student.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f4f6f9;
+  color: #333;
+}
+
+/* Navbar */
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: #2c3e50;
+  color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-nav {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-nav:hover {
+  background: #2980b9;
+}
+
+.btn-logout {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-logout:hover {
+  background: #c0392b;
+}
+
+/* Container */
+.container {
+  padding: 2rem;
+}
+
+.container h2 {
+  margin-bottom: 1.5rem;
+  color: #2c3e50;
+}
+
+/* Exam List */
+.exam-item {
+  background: white;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exam-item strong {
+  color: #2c3e50;
+}
+
+.exam-item button {
+  background: #27ae60;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.exam-item button:hover {
+  background: #219653;
+}
+
+/* Results List */
+.result-item {
+  background: white;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.result-item p {
+  margin: 0.5rem 0;
+}
+
+.alert {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.success {
+  color: #27ae60;
+}
+
+/* Placeholder */
+.placeholder {
+  text-align: center;
+  color: #777;
+  font-style: italic;
+  padding: 2rem;
+}
