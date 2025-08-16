@@ -12,6 +12,7 @@ from jose import jwt, JWTError
 # ✅ Router: No prefix here (handled in main.py)
 router = APIRouter(tags=["Auth"])
 
+# ❌ Remove HTTPBearer for /login - only use for protected routes
 security = HTTPBearer()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here-change-in-production")

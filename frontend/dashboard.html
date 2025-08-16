@@ -20,15 +20,20 @@
     <section id="manage-users">
       <h3>➕ Add User</h3>
       <div class="create-user-form">
-          <input type="text" id="newUsername" placeholder="Username" required>
+        <input type="text" id="newUsername" placeholder="Username" required>
+
+        <!-- Password field with eye toggle -->
+        <div class="password-field">
           <input type="password" id="newPassword" placeholder="Password" required>
-          <!-- Replace the existing role dropdown -->
-          <select id="newRole">
-              <option value="student">Student</option>
-              <option value="admin">Admin</option>
-              <option value="invigilator">Invigilator</option>
-          </select>
-          <button onclick="addUser()">Create User</button>
+          <button type="button" class="toggle-password" onclick="togglePassword('newPassword')">👁️</button>
+        </div>
+
+        <select id="newRole">
+          <option value="student">Student</option>
+          <option value="admin">Admin</option>
+          <option value="invigilator">Invigilator</option>
+        </select>
+        <button onclick="addUser()">Create User</button>
       </div>
 
       <h3>👥 All Users</h3>
@@ -47,37 +52,35 @@
       </table>
     </section>
 
-    <section id="manage-exams">
-      <h3>📋 Create Exam</h3>
-      <input type="text" id="examTitle" placeholder="Exam Title" />
-      <button onclick="createExam()">Create Exam</button>
-    </section>
-  </div>
+   
 
   <!-- ✅ Edit User Modal -->
   <div id="editUserModal" class="modal">
     <div class="modal-content">
-        <h2>Edit User</h2>
-        <div>
-            <label for="modalUsername">Username:</label>
-            <input type="text" id="modalUsername" required>
+      <h2>Edit User</h2>
+      <div>
+        <label for="modalUsername">Username:</label>
+        <input type="text" id="modalUsername" required>
+      </div>
+      <div>
+        <label for="modalRole">Role:</label>
+        <select id="modalRole">
+          <option value="student">Student</option>
+          <option value="admin">Admin</option>
+          <option value="invigilator">Invigilator</option>
+        </select>
+      </div>
+      <div>
+        <label for="modalPassword">New Password (leave blank to keep current):</label>
+        <div class="password-field">
+          <input type="password" id="modalPassword">
+          <button type="button" class="toggle-password" onclick="togglePassword('modalPassword')">👁️</button>
         </div>
-        <div>
-            <label for="modalRole">Role:</label>
-            <select id="modalRole">
-                <option value="student">Student</option>
-                <option value="admin">Admin</option>
-                <option value="invigilator">Invigilator</option>
-            </select>
-        </div>
-        <div>
-            <label for="modalPassword">New Password (leave blank to keep current):</label>
-            <input type="password" id="modalPassword">
-        </div>
-        <div class="modal-buttons">
-            <button onclick="saveUserFromModal()">Save</button>
-            <button onclick="closeModal()">Cancel</button>
-        </div>
+      </div>
+      <div class="modal-buttons">
+        <button onclick="saveUserFromModal()">Save</button>
+        <button onclick="closeModal()">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -108,9 +111,33 @@
       margin: 4px 0;
       box-sizing: border-box;
     }
+
+    /* Password field with eye icon */
+    .password-field {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    .password-field input {
+      padding-right: 50px;
+      width: 100%;
+    }
+    .toggle-password {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      font-size: 1.2em;
+      cursor: pointer;
+      opacity: 0.6;
+    }
+    .toggle-password:hover {
+      opacity: 1;
+    }
   </style>
 
-  <!-- ✅ Load external JS only -->
   <script src="js/dashboard.js"></script>
 </body>
 </html>

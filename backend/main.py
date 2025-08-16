@@ -9,7 +9,8 @@ import logging
 
 from backend.database import get_db, init_db
 from backend.auth import router as auth_router
-from backend import exam, logs, detection
+from backend.exam import router as exam_router
+from backend import logs, detection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +36,6 @@ app = FastAPI(
 )
 
 # --- CORS Configuration ---
-# 🔐 In production, replace with your frontend domain (e.g., https://yourapp.com)
 origins = [
     "http://localhost:5500",  # Live Server
     "http://127.0.0.1:5500",
@@ -53,7 +53,7 @@ app.add_middleware(
 
 # --- Include Routers ---
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
-app.include_router(exam.router, prefix="/exam", tags=["Exam"])
+app.include_router(exam_router, prefix="/exam", tags=["Exam"])
 app.include_router(logs.router, prefix="/logs", tags=["Logs"])
 
 # --- In-Memory Tracking ---

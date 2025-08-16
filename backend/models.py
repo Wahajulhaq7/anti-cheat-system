@@ -1,15 +1,11 @@
 # backend/models.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import declarative_base, relationship
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
 Base = declarative_base()
-
-# -------------------------------
-# SQLAlchemy ORM Models (for DB)
-# -------------------------------
 
 class User(Base):
     __tablename__ = "users"
@@ -30,30 +26,32 @@ class Exam(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship
-    questions = relationship("Question", back_populates="exam", cascade="all, delete-orphan")
+    mcqs = relationship("MCQ", back_populates="exam", cascade="all, delete-orphan")
 
-class Question(Base):
-    __tablename__ = "questions"
+class MCQ(Base):
+    __tablename__ = "mcqs"
     id = Column(Integer, primary_key=True, index=True)
     exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False)
     question_text = Column(Text, nullable=False)
-    options = Column(Text, nullable=False)  # Store as JSON string
+    option_a = Column(String(255), nullable=False)
+    option_b = Column(String(255), nullable=False)
+    option_c = Column(String(255), nullable=False)
+    option_d = Column(String(255), nullable=False)
     correct_option = Column(String(1), nullable=False)  # A, B, C, D
 
-    # Relationship
-    exam = relationship("Exam", back_populates="questions")
+    exam = relationship("Exam", back_populates="mcqs")
 
-# -------------------------------
-# Pydantic Models (for API)
-# -------------------------------
+
+# ================================
+# ✅ Pydantic Models (for API)
+# ================================
 
 class UserBase(BaseModel):
     username: str
 
 class UserCreate(UserBase):
     password: str
-    role: str = 'student'
+    role: str = 'student'  # Default role
 
 class UserLogin(UserBase):
     password: str
@@ -68,19 +66,16 @@ class UserResponse(UserBase):
     role: str
     model_config = ConfigDict(from_attributes=True)
 
-class MCQCreate(BaseModel):
-    question_text: str
-    options: str  # JSON string: {"A": "Option A", "B": "Option B"}
-    correct_option: str  # A, B, C, D
+class QuestionBase(BaseModel):
+    questionNumber: int
+    questionText: str
+    options: List[str]
+    correctAnswer: str  # A, B, C, D
 
 class ExamCreate(BaseModel):
     title: str
-    description: str
-    start_time: datetime
-    end_time: datetime
-    duration_minutes: int
-    created_by: int
-    mcqs: List[MCQCreate] = []
+    description: Optional[str] = None
+    questions: List[QuestionBase]
 
 class Token(BaseModel):
     access_token: str

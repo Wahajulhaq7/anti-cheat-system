@@ -1,6 +1,6 @@
 // frontend/js/dashboard.js
 
-// ✅ Prevent non-admins from accessing dashboard
+// Prevent non-admins from accessing dashboard
 const role = localStorage.getItem("role");
 if (!role) {
   window.location.href = "login.html";
@@ -9,13 +9,13 @@ if (!role) {
   window.location.href = "student.html";
 }
 
-// ✅ Logout function
+// Logout function
 function logout() {
   localStorage.clear();
   window.location.href = "login.html";
 }
 
-// ✅ Load all users on page load
+// Load all users on page load
 window.onload = () => {
   loadUsers();
 };
@@ -34,7 +34,21 @@ function createRoleSelect(currentRole) {
   `;
 }
 
-// ✅ Fetch and display all users
+// Toggle password visibility
+function togglePassword(fieldId) {
+  const field = document.getElementById(fieldId);
+  const button = event.currentTarget;
+
+  if (field.type === "password") {
+    field.type = "text";
+    button.textContent = "👁️";
+  } else {
+    field.type = "password";
+    button.textContent = "👁️";
+  }
+}
+
+// Fetch and display all users
 async function loadUsers() {
   try {
     const token = localStorage.getItem("token");
@@ -53,7 +67,6 @@ async function loadUsers() {
     });
 
     if (res.status === 401) {
-      console.error("401 Unauthorized: Invalid or expired token");
       alert("Session expired. Please log in again.");
       logout();
       return;
@@ -65,9 +78,7 @@ async function loadUsers() {
       return;
     }
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
 
     const users = await res.json();
     const tbody = document.querySelector("#usersTable tbody");
@@ -88,15 +99,11 @@ async function loadUsers() {
     });
   } catch (err) {
     console.error("Load users error:", err);
-    if (err.message.includes("Failed to fetch")) {
-      alert("❌ Network error: Unable to reach server. Is the backend running?");
-    } else {
-      alert("❌ Failed to load users");
-    }
+    alert("❌ Failed to load users. Check connection or login again.");
   }
 }
 
-// ✅ Add new user
+// Add new user
 async function addUser() {
   const username = document.getElementById("newUsername").value.trim();
   const password = document.getElementById("newPassword").value;
@@ -128,7 +135,7 @@ async function addUser() {
       alert("✅ User created!");
       document.getElementById("newUsername").value = "";
       document.getElementById("newPassword").value = "";
-      loadUsers(); // Refresh list
+      loadUsers();
     } else {
       const err = await res.json();
       alert("❌ " + (err.detail || "Failed to create user"));
@@ -139,7 +146,7 @@ async function addUser() {
   }
 }
 
-// ✅ Edit User Modal
+// Edit User Modal
 let currentUserID = null;
 let originalUsername = "";
 let originalRole = "";
@@ -157,7 +164,7 @@ function openEditModal(userId, button) {
   document.getElementById("editUserModal").style.display = "flex";
 }
 
-// ✅ Save user (only send changed fields)
+// Save user (only send changed fields)
 async function saveUserFromModal() {
   const username = document.getElementById("modalUsername").value.trim();
   const role = document.getElementById("modalRole").value;
@@ -209,12 +216,12 @@ async function saveUserFromModal() {
   }
 }
 
-// ✅ Close modal
+// Close modal
 function closeModal() {
   document.getElementById("editUserModal").style.display = "none";
 }
 
-// ✅ Delete user
+// Delete user
 async function deleteUser(userId) {
   if (!confirm("Are you sure you want to delete this user?")) return;
 
@@ -222,9 +229,7 @@ async function deleteUser(userId) {
     const token = localStorage.getItem("token");
     const res = await fetch(`http://localhost:8000/auth/users/${userId}`, {
       method: "DELETE",
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
+      headers: { "Authorization": `Bearer ${token}` }
     });
 
     if (res.status === 401) {
@@ -246,7 +251,7 @@ async function deleteUser(userId) {
   }
 }
 
-// ✅ Create exam
+// Create exam
 async function createExam() {
   const title = document.getElementById("examTitle").value.trim();
   const user_id = localStorage.getItem("user_id");
