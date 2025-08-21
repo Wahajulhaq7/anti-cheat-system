@@ -23,12 +23,23 @@ function checkAuth() {
 }
 
 /**
+ * Display logged-in username in navbar
+ */
+function displayUsername() {
+  const username = localStorage.getItem("username");
+  const usernameSpan = document.getElementById("username");
+  if (username && usernameSpan) {
+    usernameSpan.textContent = `👋 ${username}`;
+  }
+}
+
+/**
  * Load available exams (for exams.html)
  */
 async function loadExams() {
   const token = localStorage.getItem("token");
   const list = document.getElementById("exam-list");
-  if (!list) return; // Prevent error if element doesn't exist
+  if (!list) return;
 
   list.innerHTML = "<p>Loading exams...</p>";
 
@@ -54,7 +65,7 @@ async function loadExams() {
     list.innerHTML = exams.map(exam => `
       <div class="exam-item">
         <strong>${exam.title}</strong>
-        <button onclick="startExam(${exam.id})">Start Exam</button>
+        <button class="btn-start" onclick="startExam(${exam.id})">Start Exam</button>
       </div>
     `).join("");
   } catch (err) {
@@ -70,7 +81,12 @@ async function loadResults() {
   const user_id = localStorage.getItem("user_id");
   const token = localStorage.getItem("token");
   const list = document.getElementById("results-list");
-  if (!list) return; // Prevent error if element doesn't exist
+  if (!list) return;
+
+  if (!user_id) {
+    list.innerHTML = "<p>User ID missing — please log in again.</p>";
+    return;
+  }
 
   list.innerHTML = "<p>Loading results...</p>";
 
@@ -93,17 +109,20 @@ async function loadResults() {
       return;
     }
 
-    list.innerHTML = reports.map(r => `
-      <div class="result-item">
-        <p><strong>Exam ID:</strong> ${r.exam_id}</p>
-        <p><strong>Movements Detected:</strong> ${r.movement_count}</p>
-        <p><strong>Status:</strong> 
-          <span class="${r.movement_count > 5 ? 'alert' : 'success'}">
-            ${r.movement_count > 5 ? 'Suspicious' : 'Normal'}
-          </span>
-        </p>
-      </div>
-    `).join("");
+    list.innerHTML = reports.map(r => {
+      const statusClass = r.movement_count > 5 ? "alert" : "success";
+      const statusText = r.movement_count > 5 ? "Suspicious" : "Normal";
+
+      return `
+        <div class="result-item">
+          <p><strong>Exam ID:</strong> ${r.exam_id}</p>
+          <p><strong>Movements Detected:</strong> ${r.movement_count}</p>
+          <p><strong>Status:</strong> 
+            <span class="status ${statusClass}">${statusText}</span>
+          </p>
+        </div>
+      `;
+    }).join("");
   } catch (err) {
     console.error("Error loading results:", err);
     list.innerHTML = "<p>Network error. Could not load results.</p>";
@@ -128,15 +147,16 @@ function logout() {
 
 /**
  * Page-specific initialization
+ * Student is now redirected to exams.html after login
  */
 window.onload = () => {
   if (!checkAuth()) return;
+  displayUsername();
 
   const path = window.location.pathname;
-
-  if (path.includes("student.html")) {
-    loadResults();
-  } else if (path.includes("exams.html")) {
+  if (path.includes("exams.html")) {
     loadExams();
+  } else if (path.includes("student.html")) {
+    loadResults();
   }
 };

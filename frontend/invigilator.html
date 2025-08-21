@@ -7,69 +7,78 @@
   <link rel="stylesheet" href="css/invigilator.css" />
 </head>
 <body>
-  <!-- invigilator.html -->
 <nav class="nav-bar">
   <h1>👮‍♂️ Invigilator Dashboard</h1>
   <div class="nav-buttons">
     <button onclick="location.href='students.html'" class="btn-nav">👥 Students</button>
+    <!-- ✅ Updated route -->
+    <button onclick="location.href='manage_exams.html'" class="btn-nav">📄 Exams Created</button>
     <span id="username"></span>
     <button onclick="logout()" class="btn-logout">Logout</button>
   </div>
 </nav>
 
-  <div class="dashboard-container">
-    <!-- Stats Cards -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <h3>Total Students</h3>
-        <p id="totalStudents">0</p>
-      </div>
-      <div class="stat-card">
-        <h3>Ongoing Exams</h3>
-        <p id="activeExamsCount">0</p>
-      </div>
-      <div class="stat-card warning">
-        <h3>Suspicious Activities</h3>
-        <p id="suspiciousCount">0</p>
-      </div>
+<div class="dashboard-container">
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <h3>Total Students</h3>
+      <p id="totalStudents">0</p>
     </div>
+    <div class="stat-card">
+      <h3>Ongoing Exams</h3>
+      <p id="activeExamsCount">0</p>
+    </div>
+    <div class="stat-card">
+      <h3>Total Exams Created</h3>
+      <p id="totalExamsCreated">0</p>
+    </div>
+    <div class="stat-card warning">
+      <h3>Suspicious Activities</h3>
+      <p id="suspiciousCount">0</p>
+    </div>
+  </div>
 
-    <!-- Exam Management -->
-    <section class="exam-section">
-  <h2>Create MCQ Exam</h2>
-  <form id="examForm" onsubmit="createExam(event)">
-    <div class="exam-header">
+  <!-- Exam Management -->
+  <section class="exam-section">
+    <h2>Create MCQ Exam</h2>
+    <form id="examForm">
+      <div class="exam-header">
         <input type="text" id="examTitle" placeholder="Enter exam title" required>
+      </div>
+      <div id="questionsContainer"></div>
+      <button type="button" onclick="addQuestion()">+ Add Question</button>
+      <button type="submit" class="create-btn">Create Exam</button>
+    </form>
+
+    <div id="examsList" class="exam-list"></div>
+  </section>
+
+  <!-- Live Monitoring -->
+  <section class="monitor-section">
+    <h2>Live Student Monitoring</h2>
+    <div id="studentGrid" class="student-grid">
+      <p class="placeholder">No active exam selected</p>
     </div>
-    <div id="questionsContainer"></div>
-    <button type="button" onclick="addQuestion()">+ Add Question</button>
-    <button type="submit" class="create-btn">Create Exam</button>
-  </form>
+  </section>
 
-  <div id="examsList" class="exam-list">
-    <!-- Exams will be loaded here -->
-  </div>
-</section>
+  <!-- Alerts Panel -->
+  <section class="alerts-section">
+    <h2>Unusual Detections</h2>
+    <div id="alertsList" class="alerts-list">
+      <p class="placeholder">No suspicious activity detected</p>
+    </div>
+  </section>
+</div>
 
-    <!-- Live Monitoring -->
-    <section class="monitor-section">
-      <h2>Live Student Monitoring</h2>
-      <div id="studentGrid" class="student-grid">
-        <!-- Student feeds will appear here -->
-        <p class="placeholder">No active exam selected</p>
-      </div>
-    </section>
+<!-- ✅ Logout function -->
+<script>
+  function logout() {
+    localStorage.clear();
+    window.location.href = 'login.html';
+  }
+</script>
 
-    <!-- Alerts Panel -->
-    <section class="alerts-section">
-      <h2>Unusual Detections</h2>
-      <div id="alertsList" class="alerts-list">
-        <!-- Alerts will be added here -->
-        <p class="placeholder">No suspicious activity detected</p>
-      </div>
-    </section>
-  </div>
-
-  <script src="js/invigilator.js"></script>
+<script src="js/invigilator.js"></script>
 </body>
 </html>

@@ -1,31 +1,31 @@
-<!-- frontend/student.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Results</title>
+  <title>Available Exams</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <!-- Navbar -->
   <nav class="nav-bar">
-    <h1>📊 My Exam Results</h1>
+    <h1>📝 Available Exams</h1>
     <div class="nav-buttons">
-      <button onclick="location.href='available_exams.html'" class="btn-nav">📝 Available Exams</button>
+      <span id="username"></span>
+      <button onclick="location.href='student.html'" class="btn-nav">📊 Results</button>
       <button onclick="logout()" class="btn-logout">Logout</button>
     </div>
   </nav>
 
   <!-- Main Content -->
   <div class="container">
-    <h2>📄 Your Results</h2>
-    <div id="results-list">
-      <p>Loading results...</p>
+    <h2>📚 Choose an Exam</h2>
+    <div id="exam-list">
+      <p>Loading exams...</p>
     </div>
   </div>
 
   <!-- Scripts -->
-  <script src="js/student.js"></script>
+  <script src="js/available_exams.js"></script>
 </body>
 </html>

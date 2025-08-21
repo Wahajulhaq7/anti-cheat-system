@@ -1,24 +1,23 @@
-# backend/main.py
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import cv2
 import numpy as np
 import logging
+from contextlib import asynccontextmanager
+import os
 
 from backend.database import get_db, init_db
 from backend.auth import router as auth_router
 from backend.exam import router as exam_router
 from backend import logs, detection
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Lifespan event to initialize database on startup
-from contextlib import asynccontextmanager
-
+# --- Lifespan manager ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting up the Anti-Cheat Detection API...")
@@ -27,7 +26,6 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("🛑 Shutting down the Anti-Cheat Detection API...")
 
-# Create FastAPI app
 app = FastAPI(
     title="Anti-Cheat Detection API",
     version="1.0.0",
@@ -35,14 +33,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# --- CORS Configuration ---
+# --- CORS ---
 origins = [
-    "http://localhost:5500",  # Live Server
+    "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "http://localhost:3000",  # React/Vite
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:8000",  # if serving static HTML from same port
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -51,15 +49,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Include Routers ---
+# --- Mount routers ---
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(exam_router, prefix="/exam", tags=["Exam"])
 app.include_router(logs.router, prefix="/logs", tags=["Logs"])
 
-# --- In-Memory Tracking ---
+# --- Serve static frontend ---
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    logger.info(f"📂 Serving static frontend from {FRONTEND_DIR}")
+else:
+    logger.warning("⚠️ Frontend folder not found; static files not being served.")
+
+# --- Video feed endpoint ---
 active_streams = {}
 
-# --- Video Stream Endpoint ---
 @app.post("/video/feed")
 async def video_feed(
     user_id: int,
@@ -67,15 +72,10 @@ async def video_feed(
     frame: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Receive a video frame, run anti-cheat detection, and log suspicious activity.
-    """
     try:
-        # Validate file type
         if not frame.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="Invalid file type. Only images allowed.")
 
-        # Read and decode image
         contents = await frame.read()
         np_arr = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -83,10 +83,8 @@ async def video_feed(
         if img is None:
             raise HTTPException(status_code=400, detail="Invalid image data")
 
-        # Run detection (returns processed image and list of logs)
         _, logs_list = detection.detect_faces_and_movements(img, user_id, exam_id)
 
-        # Save logs to DB if any
         if logs_list:
             insert_query = text("""
                 INSERT INTO Movements (user_id, exam_id, movement_type, timestamp, frame_image_path)
@@ -106,7 +104,7 @@ async def video_feed(
         logger.error(f"❌ Failed to process frame for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to process video frame")
 
-# --- Health Check ---
+# --- Health check ---
 @app.get("/health")
 def health_check():
     return {
@@ -115,7 +113,7 @@ def health_check():
         "service": "video-proctoring"
     }
 
-# --- Root Endpoint ---
+# --- Root info ---
 @app.get("/")
 def root():
     return {
@@ -126,6 +124,7 @@ def root():
         "endpoints": {
             "login": "/auth/login",
             "users": "/auth/users",
+            "exam_create": "/exam/create",
             "video_feed": "/video/feed"
         }
     }
