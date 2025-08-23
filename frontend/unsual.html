@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Unusual Detections</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>📂 Unusual Detection Images</h1>
+  <div id="imagesContainer">Loading...</div>
+
+  <script>
+    const API_BASE = "http://localhost:8000";
+    const params = new URLSearchParams(window.location.search);
+    const user_id = params.get("user_id");
+    const exam_id = params.get("exam_id");
+
+    window.addEventListener("DOMContentLoaded", loadUnusualImages);
+
+    async function loadUnusualImages() {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE}/monitor/unusual-images?user_id=${user_id}&exam_id=${exam_id}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        const container = document.getElementById("imagesContainer");
+        if (!res.ok) {
+          container.innerHTML = "<p>Failed to load images.</p>";
+          return;
+        }
+
+        const images = await res.json();
+        if (!images.length) {
+          container.innerHTML = "<p>No unusual images found.</p>";
+          return;
+        }
+
+        container.innerHTML = images.map(img => `
+          <div class="snapshot">
+            <img src="${API_BASE}/${img.frame_image_path}" alt="Detection" width="300">
+            <p>${img.movement_type} — ${new Date(img.timestamp).toLocaleString()}</p>
+          </div>
+        `).join("");
+      } catch (err) {
+        console.error("Error loading unusual images:", err);
+      }
+    }
+  </script>
+</body>
+</html>

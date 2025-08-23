@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exam Interface</title>
+  <link rel="stylesheet" href="css/startexam.css" />
+</head>
+<body>
+  <nav class="nav-bar">
+    <h1>🧠 Online Exam</h1>
+    <div class="nav-buttons">
+      <span id="username"></span>
+      <button onclick="logout()" class="btn-logout">Logout</button>
+    </div>
+  </nav>
+
+  <div class="exam-container">
+    <!-- Left: Exam Questions -->
+    <section class="exam-questions">
+      <h2>📄 Exam Questions</h2>
+      <div id="question-list">
+        <p>Loading questions...</p>
+      </div>
+    </section>
+
+    <!-- Right: Webcam Monitoring -->
+    <section class="exam-monitoring">
+      <h2>🎥 Webcam Monitoring</h2>
+      <video id="webcam" autoplay muted playsinline></video>
+      <p id="detection-status">Detection status: <span class="status">Initializing...</span></p>
+    </section>
+  </div>
+
+  <!-- Guidelines -->
+  <div class="exam-guidelines">
+    <h3>📌 Guidelines</h3>
+    <ul>
+      <li>Ensure you're alone in the room.</li>
+      <li>Do not switch tabs or use external devices.</li>
+      <li>Keep your face visible at all times.</li>
+    </ul>
+  </div>
+
+  <script src="js/startexam.js"></script>
+</body>
+</html>

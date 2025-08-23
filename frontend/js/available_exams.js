@@ -1,15 +1,17 @@
 /**
+ * ====== CONFIG ======
+ * Centralized API base — change this if backend URL changes
+ */
+const API_BASE = "http://localhost:8000";
+
+/**
  * Check authentication and redirect if not a student
  */
 function checkAuth() {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
 
-  if (!token) {
-    window.location.href = "login.html";
-    return false;
-  }
-  if (role !== "student") {
+  if (!token || role !== "student") {
     alert("Access denied. Students only.");
     localStorage.clear();
     window.location.href = "login.html";
@@ -23,8 +25,9 @@ function checkAuth() {
  */
 function displayUsername() {
   const username = localStorage.getItem("username");
-  if (username) {
-    document.getElementById("username").textContent = `👋 ${username}`;
+  const usernameEl = document.getElementById("username");
+  if (username && usernameEl) {
+    usernameEl.textContent = `👋 ${username}`;
   }
 }
 
@@ -37,18 +40,21 @@ async function loadExams() {
   list.innerHTML = "<p>Loading exams...</p>";
 
   try {
-    const res = await fetch("http://localhost:8000/exam/available", {
-      headers: { "Authorization": `Bearer ${token}` }
+    const response = await fetch(`${API_BASE}/exam/available`, {
+      method: "GET",
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
     });
 
-    if (!res.ok) {
-      list.innerHTML = "<p>Failed to load exams.</p>";
-      return;
+    if (!response.ok) {
+      throw new Error(`Failed to fetch exams (HTTP ${response.status})`);
     }
 
-    const exams = await res.json();
+    const exams = await response.json();
 
-    if (exams.length === 0) {
+    if (!Array.isArray(exams) || exams.length === 0) {
       list.innerHTML = "<p>No exams available.</p>";
       return;
     }
@@ -56,13 +62,25 @@ async function loadExams() {
     list.innerHTML = exams.map(exam => `
       <div class="exam-item">
         <strong>${exam.title}</strong><br/>
-        <small>${exam.description || ''}</small><br/>
-        <button class="btn-start" onclick="startExam(${exam.id})">Start Exam</button>
+        <small>${exam.description || 'No description provided.'}</small><br/>
+        <button class="btn-start" data-exam-id="${exam.id}">Start Exam</button>
       </div>
     `).join("");
-  } catch (err) {
-    console.error("Error loading exams:", err);
-    list.innerHTML = "<p>Network error. Could not load exams.</p>";
+
+    // Attach event listeners after rendering
+    document.querySelectorAll(".btn-start").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const examId = btn.getAttribute("data-exam-id");
+        startExam(examId);
+      });
+    });
+
+  } catch (error) {
+    console.error("Error loading exams:", error);
+    list.innerHTML = `<p style="color:red;">
+      Network error. Could not load exams.<br/>
+      <small>${error.message}</small>
+    </p>`;
   }
 }
 
@@ -70,8 +88,12 @@ async function loadExams() {
  * Start an exam
  */
 function startExam(exam_id) {
+  if (!exam_id) {
+    alert("Invalid exam ID.");
+    return;
+  }
   localStorage.setItem("current_exam_id", exam_id);
-  window.location.href = "exam.html";
+  window.location.assign("startexam.html");
 }
 
 /**
@@ -85,8 +107,8 @@ function logout() {
 /**
  * On page load
  */
-window.onload = () => {
+window.addEventListener("DOMContentLoaded", () => {
   if (!checkAuth()) return;
   displayUsername();
   loadExams();
-};
+});

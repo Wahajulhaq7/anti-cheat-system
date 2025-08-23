@@ -1,0 +1,155 @@
+/* General Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+body {
+  background-color: #f4f6f8;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Navbar */
+.nav-bar {
+  background-color: #2b3e50;
+  color: #fff;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-bar h1 {
+  font-size: 1.5rem;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.nav-buttons span {
+  font-weight: 500;
+}
+
+.btn-logout {
+  background: #d9534f;
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-logout:hover {
+  background: #c9302c;
+}
+
+/* Main Exam Container */
+.exam-container {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 1rem 2rem;
+  gap: 1.5rem;
+}
+
+.exam-questions,
+.exam-monitoring {
+  background: #fff;
+  border-radius: 6px;
+  padding: 1rem;
+  flex: 1;
+  min-width: 320px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+/* Section Headings */
+.exam-questions h2,
+.exam-monitoring h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.8rem;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+/* Questions List */
+#question-list p {
+  margin-bottom: 0.5rem;
+}
+
+.question-block {
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.question-block ul {
+  list-style-type: none;
+  margin-top: 0.4rem;
+}
+
+.question-block li {
+  background: #f9f9f9;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  margin-bottom: 0.3rem;
+}
+
+/* Webcam Monitoring */
+#webcam {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: #000;
+}
+
+#detection-status {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.status {
+  font-weight: bold;
+}
+
+.status.success {
+  color: #28a745;
+}
+
+.status.alert {
+  color: #d9534f;
+}
+
+/* Guidelines */
+.exam-guidelines {
+  background: #fff;
+  margin: 1rem 2rem;
+  padding: 1rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.exam-guidelines h3 {
+  margin-bottom: 0.6rem;
+}
+
+.exam-guidelines ul {
+  list-style: disc;
+  padding-left: 1.2rem;
+}
+
+.exam-guidelines li {
+  margin-bottom: 0.3rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .exam-container {
+    flex-direction: column;
+  }
+}

@@ -1,20 +1,22 @@
-// frontend/js/auth.js
+/**
+ * =========================
+ * AUTH.JS
+ * Updated to match FastAPI /auth/login endpoint
+ * =========================
+ */
 
 /**
  * Auto-redirect based on login state
- * Ensures user goes to correct page: login, dashboard, student, or invigilator
  */
 window.onload = () => {
-  // Don't run redirect if on exam.html (proctoring in progress)
-  if (window.location.pathname.includes("exam.html")) {
-    return;
-  }
+  const path = window.location.pathname.toLowerCase();
+
+  // Skip redirect if on any exam page
+  if (path.includes("exam")) return;
 
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role")?.toLowerCase()?.trim();
-  const path = window.location.pathname;
 
-  // Normalize path checks
   const isLogin = path.includes("login.html");
   const isDashboard = path.includes("dashboard.html");
   const isStudent = path.includes("student.html");
@@ -23,20 +25,16 @@ window.onload = () => {
   if (token) {
     // Logged in → redirect based on role
     if (role === "admin" && !isDashboard) {
-      console.log("Redirecting admin to dashboard.html");
       window.location.href = "dashboard.html";
     } else if (role === "student" && !isStudent) {
-      console.log("Redirecting student to student.html");
       localStorage.removeItem("current_exam_id");
       window.location.href = "student.html";
     } else if (role === "invigilator" && !isInvigilator) {
-      console.log("Redirecting invigilator to invigilator.html");
       window.location.href = "invigilator.html";
     }
   } else {
     // Not logged in → must be on login page
     if (!isLogin) {
-      console.log("No token → redirecting to login.html");
       window.location.href = "login.html";
     }
   }
@@ -45,91 +43,90 @@ window.onload = () => {
 /**
  * Handle login form submission
  */
-document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("loginForm");
+  if (!form) return;
 
-  const username = document.getElementById("username")?.value.trim();
-  const password = document.getElementById("password")?.value;
-  const error = document.getElementById("error");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-  // Validate input
-  if (!username || !password) {
-    error.textContent = "Please enter both username and password";
-    return;
-  }
+    const username = document.getElementById("username")?.value.trim();
+    const password = document.getElementById("password")?.value;
+    const error = document.getElementById("error");
 
-  // Clear previous error
-  error.textContent = "";
-
-  const API_BASE = "http://localhost:8000";
-  const LOGIN_URL = `${API_BASE}/auth/login`;
-
-  try {
-    console.log("Attempting login with:", { username });
-
-    const res = await fetch(LOGIN_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({ username, password })
-    });
-
-    // Log status for debugging
-    console.log("Login response status:", res.status);
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Login failed:", errorText);
-      try {
-        const errData = JSON.parse(errorText);
-        error.textContent = errData.detail || "Invalid credentials";
-      } catch {
-        error.textContent = "Login failed: Server returned an error.";
-      }
+    if (!username || !password) {
+      error.textContent = "Please enter both username and password";
+      error.style.display = "block";
       return;
     }
 
-    const data = await res.json();
-    console.log("Login response data:", data);
+    error.textContent = "";
+    error.style.display = "none";
 
-    // ✅ Validate role
-    const role = data.role?.toLowerCase()?.trim();
-    const validRoles = ['admin', 'student', 'invigilator'];
+    const API_BASE = "http://localhost:8000";
+    const LOGIN_URL = `${API_BASE}/auth/login`;
 
-    if (!role || !validRoles.includes(role)) {
-      throw new Error(`Invalid or missing role: '${role}'`);
+    try {
+      console.log("Attempting login with:", { username });
+
+      const res = await fetch(LOGIN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ username, password })
+      });
+
+      console.log("Login response status:", res.status);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        error.textContent = errData.detail || "Invalid credentials";
+        error.style.display = "block";
+        return;
+      }
+
+      const data = await res.json();
+      console.log("Login response data:", data);
+
+      const role = data.role?.toLowerCase()?.trim();
+      const validRoles = ["admin", "student", "invigilator"];
+
+      if (!role || !validRoles.includes(role)) {
+        throw new Error(`Invalid or missing role: '${role}'`);
+      }
+
+      // Save session
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("username", username);
+      localStorage.setItem("user_id", data.id);
+      localStorage.setItem("role", role);
+
+      // Redirect based on role
+      const redirectMap = {
+        admin: "dashboard.html",
+        student: "student.html",
+        invigilator: "invigilator.html"
+      };
+
+      // Student-specific cleanup
+      if (role === "student") {
+        localStorage.removeItem("current_exam_id");
+      }
+
+      window.location.href = redirectMap[role] || "login.html";
+
+    } catch (err) {
+      console.error("🔐 Login error:", err);
+      localStorage.clear();
+      alert(
+        "Login failed. " +
+        (err.message.includes("Invalid or missing role")
+          ? "User role not recognized. Contact admin."
+          : "Check your connection or try again.")
+      );
+      window.location.href = "login.html";
     }
-
-    // ✅ Save to localStorage
-    localStorage.setItem("token", data.access_token);
-    localStorage.setItem("username", username);
-    localStorage.setItem("user_id", data.id);
-    localStorage.setItem("role", role);
-
-    // ✅ Redirect based on role
-    if (role === 'admin') {
-      console.log("✅ Admin login successful → Redirecting to dashboard.html");
-      window.location.href = "dashboard.html";
-    } else if (role === 'student') {
-      console.log("✅ Student login successful → Redirecting to student.html");
-      localStorage.removeItem("current_exam_id");
-      window.location.href = "student.html";
-    } else if (role === 'invigilator') {
-      console.log("✅ Invigilator login successful → Redirecting to invigilator.html");
-      window.location.href = "invigilator.html";
-    }
-
-  } catch (err) {
-    console.error("🔐 Login error:", err);
-    localStorage.clear();
-    alert(
-      "Login failed. " +
-      (err.message.includes("Invalid or missing role")
-        ? "User role not recognized. Contact admin."
-        : "Check your connection or try again.")
-    );
-    window.location.href = "login.html";
-  }
+  });
 });

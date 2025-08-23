@@ -11,7 +11,6 @@
   <h1>👮‍♂️ Invigilator Dashboard</h1>
   <div class="nav-buttons">
     <button onclick="location.href='students.html'" class="btn-nav">👥 Students</button>
-    <!-- ✅ Updated route -->
     <button onclick="location.href='manage_exams.html'" class="btn-nav">📄 Exams Created</button>
     <span id="username"></span>
     <button onclick="logout()" class="btn-logout">Logout</button>
@@ -54,24 +53,24 @@
     <div id="examsList" class="exam-list"></div>
   </section>
 
-  <!-- Live Monitoring -->
+  <!-- Active Students Monitoring -->
   <section class="monitor-section">
     <h2>Live Student Monitoring</h2>
-    <div id="studentGrid" class="student-grid">
-      <p class="placeholder">No active exam selected</p>
+    <div id="activeStudentsList" class="student-grid">
+      <p class="placeholder">Loading active students...</p>
     </div>
   </section>
 
-  <!-- Alerts Panel -->
+  <!-- Unusual Detections -->
   <section class="alerts-section">
     <h2>Unusual Detections</h2>
-    <div id="alertsList" class="alerts-list">
-      <p class="placeholder">No suspicious activity detected</p>
+    <div id="unusualList" class="alerts-list">
+      <p class="placeholder">Loading unusual detections...</p>
     </div>
   </section>
 </div>
 
-<!-- ✅ Logout function -->
+<!-- Logout function -->
 <script>
   function logout() {
     localStorage.clear();

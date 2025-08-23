@@ -1,10 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from .database import get_db
 from .auth import get_current_user
 
 router = APIRouter()
+
+# ✅ NEW: GET AVAILABLE EXAMS FOR STUDENTS
+@router.get("/available")
+async def get_available_exams(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    # Allow only students
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "student":
+        raise HTTPException(status_code=403, detail="Only students can view available exams")
+
+    # Fetch exams that are still active or upcoming
+    query = text("""
+        SELECT id, title, description, start_time, end_time, duration_minutes
+        FROM dbo.Exams
+        WHERE GETDATE() <= end_time
+        ORDER BY start_time ASC
+    """)
+    rows = db.execute(query).fetchall()
+
+    return [dict(row._mapping) for row in rows]
+
 
 # ✅ CREATE EXAM
 @router.post("/create")
@@ -13,8 +36,6 @@ async def create_exam(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    print("Creating exam with data:", exam_data)  # Debug log
-
     try:
         created_by = (
             current_user.get("id")
@@ -73,18 +94,102 @@ async def create_exam(
             )
 
         db.commit()
-        print(f"✅ Exam created successfully with ID: {exam_id}")
         return {"status": "success", "message": "Exam created successfully", "exam_id": exam_id}
 
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error creating exam: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ✅ GET ALL EXAMS CREATED BY CURRENT INVIGILATOR (for stats card)
+# ✅ GET QUESTIONS FOR AN EXAM
+@router.get("/{exam_id}/questions")
+async def get_exam_questions(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    query = text("""
+        SELECT id, question, option_a, option_b, option_c, option_d
+        FROM dbo.MCQs
+        WHERE exam_id = :eid
+        ORDER BY id ASC
+    """)
+    rows = db.execute(query, {"eid": exam_id}).fetchall()
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="No questions found for this exam")
+
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ SUBMIT ANSWERS (NEW ENDPOINT)
+@router.post("/{exam_id}/submit")
+async def submit_exam_answers(
+    exam_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    user_id = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    answers = payload.get("answers", [])
+    if not answers:
+        raise HTTPException(status_code=400, detail="No answers provided")
+
+    try:
+        # Optional: prevent multiple submissions
+        existing = db.execute(text("""
+            SELECT COUNT(*) FROM dbo.StudentAnswers
+            WHERE user_id = :uid AND exam_id = :eid
+        """), {"uid": user_id, "eid": exam_id}).scalar()
+
+        if existing > 0:
+            raise HTTPException(status_code=400, detail="You have already submitted this exam")
+
+        for ans in answers:
+            question_number = ans.get("question_number")
+            selected_option = ans.get("selected_option")
+
+            # Get question_id from MCQs based on order
+            q_row = db.execute(text("""
+                SELECT id FROM dbo.MCQs
+                WHERE exam_id = :eid
+                ORDER BY id ASC
+                OFFSET :offset ROWS FETCH NEXT 1 ROWS ONLY
+            """), {"eid": exam_id, "offset": question_number - 1}).fetchone()
+
+            if not q_row:
+                continue
+
+            db.execute(text("""
+                INSERT INTO dbo.StudentAnswers (user_id, exam_id, question_id, selected_option)
+                VALUES (:uid, :eid, :qid, :opt)
+            """), {
+                "uid": user_id,
+                "eid": exam_id,
+                "qid": q_row.id,
+                "opt": selected_option
+            })
+
+        db.commit()
+        return {"status": "success", "message": "Answers saved"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ✅ GET ALL EXAMS CREATED BY CURRENT INVIGILATOR
 @router.get("/my")
 async def get_my_exams(
     db: Session = Depends(get_db),
@@ -105,7 +210,7 @@ async def get_my_exams(
         ORDER BY created_at DESC
     """)
     rows = db.execute(exams_query, {"uid": created_by}).fetchall()
-    return [dict(row._mapping) for row in rows]  # Array → JS .length works
+    return [dict(row._mapping) for row in rows]
 
 
 # ✅ COUNT‑ONLY VERSION
@@ -165,36 +270,62 @@ async def delete_exam(
     )
     if created_by is None:
         raise HTTPException(status_code=401, detail="User ID not found in current_user")
-
-    # Ensure exam exists and belongs to current user
-    exam_check = db.execute(
-        text("SELECT id FROM dbo.Exams WHERE id = :eid AND created_by = :uid"),
-        {"eid": exam_id, "uid": created_by}
-    ).fetchone()
-    if not exam_check:
-        raise HTTPException(status_code=404, detail="Exam not found or not owned by you")
-
-    # Delete child MCQs first to maintain FK integrity
-    db.execute(text("DELETE FROM dbo.MCQs WHERE exam_id = :eid"), {"eid": exam_id})
-    db.execute(text("DELETE FROM dbo.Exams WHERE id = :eid"), {"eid": exam_id})
-    db.commit()
-
-    return {"status": "success", "message": f"Exam {exam_id} deleted"}
-
-@router.get("/available")
-async def get_available_exams(
+    
+    # ✅ START EXAM
+@router.post("/{exam_id}/start")
+async def start_exam(
+    exam_id: int,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    # Only students should hit this, but you can allow others for testing
-    if current_user["role"] != "student":
-        raise HTTPException(status_code=403, detail="Only students can view available exams")
+    user_id = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    if role != "student":
+        raise HTTPException(status_code=403, detail="Only students can start exams")
 
-    query = text("""
-        SELECT id, title, description, start_time, end_time
-        FROM dbo.Exams
-        WHERE GETDATE() BETWEEN start_time AND end_time
-        ORDER BY start_time ASC
-    """)
-    rows = db.execute(query).fetchall()
-    return [dict(row._mapping) for row in rows]
+    try:
+        # Optional: prevent duplicate "start" records
+        existing = db.execute(text("""
+            SELECT COUNT(*) FROM dbo.ActiveExams
+            WHERE user_id = :uid AND exam_id = :eid
+        """), {"uid": user_id, "eid": exam_id}).scalar()
+
+        if existing == 0:
+            db.execute(text("""
+                INSERT INTO dbo.ActiveExams (user_id, exam_id, start_time)
+                VALUES (:uid, :eid, GETDATE())
+            """), {"uid": user_id, "eid": exam_id})
+            db.commit()
+
+        return {"status": "success", "message": "Exam started"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/exam/{exam_id}/start")
+def start_exam(exam_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    # Create a placeholder entry if not exists
+    db.execute(text("""
+        INSERT INTO StudentAnswers (user_id, exam_id)
+        SELECT :uid, :eid
+        WHERE NOT EXISTS (
+            SELECT 1 FROM StudentAnswers WHERE user_id = :uid AND exam_id = :eid
+        )
+    """), {"uid": current_user["id"], "eid": exam_id})
+    db.commit()
+    return {"message": "Exam start recorded"}
+@router.get("/active-students")
+def get_active_students(db: Session = Depends(get_db)):
+    rows = db.execute(text("""
+        SELECT DISTINCT u.id AS user_id, u.username, ae.exam_id
+        FROM ActiveExams ae
+        JOIN Users u ON ae.user_id = u.id
+        JOIN Exams e ON ae.exam_id = e.id
+        WHERE GETDATE() BETWEEN e.start_time AND e.end_time
+    """)).fetchall()
+    return [dict(r._mapping) for r in rows]

@@ -154,7 +154,7 @@ window.onload = () => {
   displayUsername();
 
   const path = window.location.pathname;
-  if (path.includes("exams.html")) {
+  if (path.includes("startexam.html")) {
     loadExams();
   } else if (path.includes("student.html")) {
     loadResults();

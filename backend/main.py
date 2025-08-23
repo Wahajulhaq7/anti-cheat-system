@@ -12,12 +12,16 @@ import os
 from backend.database import get_db, init_db
 from backend.auth import router as auth_router
 from backend.exam import router as exam_router
-from backend import logs, detection
+from backend import logs, detection, monitor  # cleaner import
 
-logging.basicConfig(level=logging.INFO)
+# ---------------- Logging ----------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
-# --- Lifespan manager ---
+# ---------------- Lifespan ----------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting up the Anti-Cheat Detection API...")
@@ -26,6 +30,7 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("🛑 Shutting down the Anti-Cheat Detection API...")
 
+# ---------------- App Init ----------------
 app = FastAPI(
     title="Anti-Cheat Detection API",
     version="1.0.0",
@@ -33,13 +38,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# --- CORS ---
+# ---------------- CORS ----------------
 origins = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:8000",  # if serving static HTML from same port
+    "http://localhost:8000",  # if serving frontend from backend
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -49,12 +54,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Mount routers ---
+# ---------------- Routers ----------------
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(exam_router, prefix="/exam", tags=["Exam"])
 app.include_router(logs.router, prefix="/logs", tags=["Logs"])
+app.include_router(monitor.router, prefix="/monitor", tags=["Monitor"])
 
-# --- Serve static frontend ---
+# ---------------- Static Frontend ----------------
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.isdir(FRONTEND_DIR):
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
@@ -62,9 +68,7 @@ if os.path.isdir(FRONTEND_DIR):
 else:
     logger.warning("⚠️ Frontend folder not found; static files not being served.")
 
-# --- Video feed endpoint ---
-active_streams = {}
-
+# ---------------- Video Feed Endpoint ----------------
 @app.post("/video/feed")
 async def video_feed(
     user_id: int,
@@ -104,7 +108,7 @@ async def video_feed(
         logger.error(f"❌ Failed to process frame for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to process video frame")
 
-# --- Health check ---
+# ---------------- Health Check ----------------
 @app.get("/health")
 def health_check():
     return {
@@ -113,7 +117,7 @@ def health_check():
         "service": "video-proctoring"
     }
 
-# --- Root info ---
+# ---------------- Root ----------------
 @app.get("/")
 def root():
     return {
