@@ -5,12 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reports - Admin</title>
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    .report-table th, .report-table td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    .report-table th {
+      background-color: #f4f4f4;
+    }
+    .btn-report {
+      padding: 6px 12px;
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .btn-report:hover {
+      background: #0056b3;
+    }
+    .back-btn {
+      display: inline-block;
+      margin-top: 20px;
+      color: #007bff;
+      text-decoration: none;
+    }
+    .back-btn:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <h2>📋 Cheating Reports</h2>
-    <button onclick="fetchReports()">Load Reports</button>
-    <div id="reports"></div>
+    <button onclick="fetchReports()" class="btn-report">🔍 Load All Student Reports</button>
+
+    <table id="reportsTable" class="report-table">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Student Name</th>
+          <th>Exam ID</th>
+          <th>Exam Title</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="reportsBody">
+        <!-- Filled by JS -->
+      </tbody>
+    </table>
+
     <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
   </div>
 

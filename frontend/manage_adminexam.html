@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Exams - Admin</title>
+    <link rel="stylesheet" href="css/manage_adminexam.css">
+</head>
+<body>
+    <header>
+        <h1>Manage Exams</h1>
+        <nav>
+            <a href="dashboard.html">Dashboard</a>
+            <button onclick="logout()">Logout</button>
+        </nav>
+    </header>
+
+    <main>
+        <section class="exam-list">
+            <h2>Exams by Username</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Exam Title</th>
+                        <th>Username</th>
+                        <th>Date Created</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="examTableBody">
+                    <!-- Dynamic rows will be inserted here -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="js/manage_adminexam.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem("formObj");
+            window.location.href = "login.html";
+        }
+    </script>
+</body>
+</html>

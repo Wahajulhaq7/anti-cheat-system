@@ -1,3 +1,4 @@
+# backend/exam.py
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -10,7 +11,7 @@ router = APIRouter()
 @router.get("/available")
 async def get_available_exams(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     # Allow only students
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
@@ -34,7 +35,7 @@ async def get_available_exams(
 async def create_exam(
     exam_data: dict,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     try:
         created_by = (
@@ -108,7 +109,7 @@ async def create_exam(
 async def get_exam_questions(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     query = text("""
         SELECT id, question, option_a, option_b, option_c, option_d
@@ -130,7 +131,7 @@ async def submit_exam_answers(
     exam_id: int,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     user_id = (
         current_user.get("id")
@@ -193,7 +194,7 @@ async def submit_exam_answers(
 @router.get("/my")
 async def get_my_exams(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     created_by = (
         current_user.get("id")
@@ -217,7 +218,7 @@ async def get_my_exams(
 @router.get("/my/count")
 async def get_my_exam_count(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     created_by = (
         current_user.get("id")
@@ -236,7 +237,7 @@ async def get_my_exam_count(
 @router.get("/list/my")
 async def get_my_exam_list(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     created_by = (
         current_user.get("id")
@@ -256,27 +257,52 @@ async def get_my_exam_list(
     return {"my_exams": [dict(row._mapping) for row in rows]}
 
 
-# ✅ DELETE EXAM (with ownership check)
+# ✅ DELETE EXAM — ONLY INVIGILATOR CAN DELETE THEIR OWN EXAMS (NO ADMIN OVERRIDE)
 @router.delete("/{exam_id}")
 async def delete_exam(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    created_by = (
-        current_user.get("id")
-        if isinstance(current_user, dict)
-        else getattr(current_user, "id", None)
-    )
-    if created_by is None:
-        raise HTTPException(status_code=401, detail="User ID not found in current_user")
-    
-    # ✅ START EXAM
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+
+    # ✅ Only invigilators can delete — removed admin override
+    if role != "invigilator":
+        raise HTTPException(status_code=403, detail="Only invigilators can delete exams")
+
+    # ✅ Check if exam exists
+    result = db.execute(
+        text("SELECT id, created_by FROM dbo.Exams WHERE id = :eid"),
+        {"eid": exam_id}
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    # ✅ Must be the creator
+    if result.created_by != user_id:
+        raise HTTPException(status_code=403, detail="You can only delete your own exams")
+
+    try:
+        # ✅ Delete related data in order
+        db.execute(text("DELETE FROM dbo.StudentAnswers WHERE exam_id = :eid"), {"eid": exam_id})
+        db.execute(text("DELETE FROM dbo.MCQs WHERE exam_id = :eid"), {"eid": exam_id})
+        db.execute(text("DELETE FROM dbo.ActiveExams WHERE exam_id = :eid"), {"eid": exam_id})
+        db.execute(text("DELETE FROM dbo.Exams WHERE id = :eid"), {"eid": exam_id})
+        db.commit()
+        return {"message": "Exam deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+
+# ✅ START EXAM
 @router.post("/{exam_id}/start")
 async def start_exam(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     user_id = (
         current_user.get("id")
@@ -305,20 +331,10 @@ async def start_exam(
 
         return {"status": "success", "message": "Exam started"}
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-@router.post("/exam/{exam_id}/start")
-def start_exam(exam_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    # Create a placeholder entry if not exists
-    db.execute(text("""
-        INSERT INTO StudentAnswers (user_id, exam_id)
-        SELECT :uid, :eid
-        WHERE NOT EXISTS (
-            SELECT 1 FROM StudentAnswers WHERE user_id = :uid AND exam_id = :eid
-        )
-    """), {"uid": current_user["id"], "eid": exam_id})
-    db.commit()
-    return {"message": "Exam start recorded"}
+
+
+# ✅ GET ACTIVE STUDENTS
 @router.get("/active-students")
 def get_active_students(db: Session = Depends(get_db)):
     rows = db.execute(text("""
@@ -329,3 +345,23 @@ def get_active_students(db: Session = Depends(get_db)):
         WHERE GETDATE() BETWEEN e.start_time AND e.end_time
     """)).fetchall()
     return [dict(r._mapping) for r in rows]
+
+
+# ✅ GET ALL EXAMS (ADMIN VIEW)
+@router.get("/admin/list")
+async def get_all_exams(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can view all exams")
+
+    query = text("""
+        SELECT e.id, e.title, u.username, e.created_at, e.start_time, e.end_time, e.duration_minutes
+        FROM dbo.Exams e
+        JOIN dbo.Users u ON e.created_by = u.id
+        ORDER BY e.created_at DESC
+    """)
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
