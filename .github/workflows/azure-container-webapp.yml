@@ -1,5 +1,4 @@
 name: Build and deploy FastAPI app to Azure Web App
-
 on:
   push:
     branches:
