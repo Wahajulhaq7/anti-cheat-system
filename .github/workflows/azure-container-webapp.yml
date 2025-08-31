@@ -27,6 +27,6 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: Alanticheatsystem   # EXACT name from Azure Overview
+          app-name: alanticheatsystem   # EXACT name from Azure Overview
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: .
