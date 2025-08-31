@@ -219,3 +219,18 @@ async def delete_user(
         raise HTTPException(status_code=404, detail="User not found or already deleted")
 
     return {"message": f"User {user_id} deleted successfully"}
+# ✅ Get a single user by ID (Admin or Invigilator only)
+@router.get("/users/{user_id}", dependencies=[Depends(get_admin_or_invigilator)])
+async def get_user_by_id(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    row = db.execute(
+        text("SELECT id, username, role FROM Users WHERE id = :uid"),
+        {"uid": user_id}
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"id": row.id, "username": row.username, "role": row.role}

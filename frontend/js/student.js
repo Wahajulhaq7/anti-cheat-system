@@ -91,7 +91,8 @@ async function loadResults() {
   list.innerHTML = "<p>Loading results...</p>";
 
   try {
-    const res = await fetch(`http://localhost:8000/log/report/${user_id}`, {
+    const res = await fetch(`http://localhost:8000/log/report/user/${user_id}`, {
+
       headers: {
         "Authorization": `Bearer ${token}`
       }
@@ -108,21 +109,25 @@ async function loadResults() {
       list.innerHTML = "<p>No results yet.</p>";
       return;
     }
+list.innerHTML = reports.map(r => {
+  const scorePercent = r.total_answered > 0 
+    ? ((r.correct_count / r.total_answered) * 100).toFixed(1) 
+    : 0;
+  const statusClass = r.movement_count > 5 ? "alert" : "success";
+  const statusText = r.movement_count > 5 ? "Suspicious" : "Normal";
 
-    list.innerHTML = reports.map(r => {
-      const statusClass = r.movement_count > 5 ? "alert" : "success";
-      const statusText = r.movement_count > 5 ? "Suspicious" : "Normal";
+  return `
+    <div class="result-item">
+      <p><strong>Exam:</strong> ${r.exam_title} (ID: ${r.exam_id})</p>
+      <p><strong>Score:</strong> ${r.correct_count}/${r.total_answered} (${scorePercent}%)</p>
+      <p><strong>Movements Detected:</strong> ${r.movement_count}</p>
+      <p><strong>Status:</strong> 
+        <span class="status ${statusClass}">${statusText}</span>
+      </p>
+    </div>
+  `;
+}).join("");
 
-      return `
-        <div class="result-item">
-          <p><strong>Exam ID:</strong> ${r.exam_id}</p>
-          <p><strong>Movements Detected:</strong> ${r.movement_count}</p>
-          <p><strong>Status:</strong> 
-            <span class="status ${statusClass}">${statusText}</span>
-          </p>
-        </div>
-      `;
-    }).join("");
   } catch (err) {
     console.error("Error loading results:", err);
     list.innerHTML = "<p>Network error. Could not load results.</p>";

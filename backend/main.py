@@ -57,7 +57,7 @@ app.add_middleware(
 # ---------------- Routers ----------------
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(exam_router, prefix="/exam", tags=["Exam"])
-app.include_router(logs.router, prefix="/logs", tags=["Logs"])
+app.include_router(logs.router)
 app.include_router(monitor.router, prefix="/monitor", tags=["Monitor"])
 
 # ---------------- Static Frontend ----------------

@@ -112,7 +112,7 @@ async def get_exam_questions(
     current_user=Depends(get_current_user)
 ):
     query = text("""
-        SELECT id, question, option_a, option_b, option_c, option_d
+        SELECT id, question, option_a, option_b, option_c, option_d, correct_option
         FROM dbo.MCQs
         WHERE exam_id = :eid
         ORDER BY id ASC
@@ -288,7 +288,6 @@ async def delete_exam(
         # ✅ Delete related data in order
         db.execute(text("DELETE FROM dbo.StudentAnswers WHERE exam_id = :eid"), {"eid": exam_id})
         db.execute(text("DELETE FROM dbo.MCQs WHERE exam_id = :eid"), {"eid": exam_id})
-        db.execute(text("DELETE FROM dbo.ActiveExams WHERE exam_id = :eid"), {"eid": exam_id})
         db.execute(text("DELETE FROM dbo.Exams WHERE id = :eid"), {"eid": exam_id})
         db.commit()
         return {"message": "Exam deleted successfully"}
@@ -365,3 +364,61 @@ async def get_all_exams(
     """)
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
+
+# backend/exam.py
+
+@router.get("/submitted")
+async def get_submitted_exams(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "invigilator":
+        raise HTTPException(status_code=403, detail="Only invigilators can view submissions")
+
+    query = text("""
+        SELECT 
+            sa.exam_id,
+            e.title AS exam_title,
+            u.username AS student_username,
+            u.id AS student_id,
+            sa.submitted_at
+        FROM StudentAnswers sa
+        JOIN Exams e ON sa.exam_id = e.id
+        JOIN Users u ON sa.user_id = u.id
+        WHERE sa.submitted_at IS NOT NULL
+        ORDER BY sa.submitted_at DESC
+    """)
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ NEW: GET STUDENT ANSWERS FOR AN EXAM (INVIGILATOR ONLY)
+@router.get("/{exam_id}/answers")
+async def get_student_answers(
+    exam_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+
+    query = text("""
+        SELECT sa.question_id, sa.selected_option, sa.submitted_at
+        FROM StudentAnswers sa
+        WHERE sa.exam_id = :eid AND sa.user_id = :uid
+        ORDER BY sa.question_id ASC
+    """)
+    rows = db.execute(query, {"eid": exam_id, "uid": user_id}).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+@router.get("/{exam_id}")
+async def get_exam(exam_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    query = text("""
+        SELECT e.id, e.title, e.start_time, e.end_time, e.duration_minutes
+        FROM Exams e
+        WHERE e.id = :eid
+    """)
+    row = db.execute(query, {"eid": exam_id}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    return dict(row._mapping)

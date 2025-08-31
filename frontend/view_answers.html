@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>View Answers</title>
+  <link rel="stylesheet" href="css/invigilator.css" />
+</head>
+<body>
+  <nav class="nav-bar">
+    <h1>📝 View Answers</h1>
+    <div class="nav-buttons">
+      <button onclick="location.href='submitted_exams.html'" class="btn-nav">⬅️ Back</button>
+      <span id="username"></span>
+      <button onclick="logout()" class="btn-logout">Logout</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-container">
+    <section class="exam-section">
+      <h2>Student Answers</h2>
+      <div id="examDetails" class="exam-item">
+        <p><strong>Exam:</strong> <span id="examTitle"></span></p>
+        <p><strong>Student:</strong> <span id="studentName"></span></p>
+        <p><strong>Submitted At:</strong> <span id="submittedAt"></span></p>
+      </div>
+
+      <div id="questionsList" class="exam-list">
+        <p class="placeholder">Loading questions...</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Logout function -->
+  <script>
+    function logout() {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+  </script>
+
+  <script src="js/view_answers.js"></script>
+</body>
+</html>

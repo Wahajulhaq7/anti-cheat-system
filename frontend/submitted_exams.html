@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submitted Exams</title>
+  <link rel="stylesheet" href="css/invigilator.css" />
+</head>
+<body>
+  <nav class="nav-bar">
+    <h1>✅ Submitted Exams</h1>
+    <div class="nav-buttons">
+      <button onclick="location.href='invigilator.html'" class="btn-nav">🏠 Dashboard</button>
+      <button onclick="location.href='manage_exams.html'" class="btn-nav">📄 My Exams</button>
+      <span id="username"></span>
+      <button onclick="logout()" class="btn-logout">Logout</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-container">
+    <section class="exam-section">
+      <h2>Student Submissions</h2>
+      <div id="submissionsList" class="exam-list">
+        <p class="placeholder">Loading submitted exams...</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Logout & Navigation Script -->
+  <script>
+    // Logout function
+    function logout() {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    // Navigate to view_answers.html with exam_id and student_id
+    function viewAnswers(examId, studentId) {
+      if (!examId || !studentId) {
+        alert("Invalid exam or student ID");
+        return;
+      }
+      window.location.href = `view_answers.html?exam_id=${examId}&user_id=${studentId}`;
+    }
+  </script>
+
+  <!-- Load frontend logic -->
+  <script src="js/submitted_exams.js"></script>
+</body>
+</html>
