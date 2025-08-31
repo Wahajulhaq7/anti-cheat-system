@@ -1,4 +1,5 @@
 name: Build and deploy FastAPI app to Azure Web App
+
 on:
   push:
     branches:
@@ -26,6 +27,6 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: YOUR_AZURE_APP_NAME
+          app-name: Alanticheatsystem   # EXACT name from Azure Overview
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: .
