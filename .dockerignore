@@ -1,17 +1,13 @@
-# .dockerignore
-__pycache__
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-.DS_Store
+.env
 .git
 .gitignore
-README.md
-.dockerignore
-Dockerfile
-docker-compose.yml
-nginx.conf
-.vscode/
-.idea/
-media/frames/
-*.env
+.vscode
+.idea
+dist/
+build/
+node_modules/
+venv/
