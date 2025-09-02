@@ -19,7 +19,25 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("username").textContent = `👋 ${username}`;
 
-  // NEW: Tell backend the exam is starting
+  // --- Tab switch / window blur detection ---
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      handleViolation("tab_switch", exam_id, token);
+    }
+  });
+
+  window.addEventListener("blur", () => {
+    handleViolation("window_blur", exam_id, token);
+  });
+
+  // --- Incognito mode detection ---
+  detectIncognitoMode(isIncognito => {
+    if (isIncognito) {
+      handleViolation("incognito_mode", exam_id, token);
+    }
+  });
+
+  // Tell backend the exam is starting
   try {
     await fetch(`${API_BASE}/exam/${exam_id}/start`, {
       method: "POST",
@@ -85,13 +103,12 @@ async function loadQuestions(exam_id) {
       </div>
     `).join("");
 
-    // Add Submit button after the questions
-    const submitBtnHTML = `
+    // Add Submit button
+    list.insertAdjacentHTML("beforeend", `
       <div style="margin-top:20px;">
         <button id="submit-answers" class="btn-submit">Submit Answers</button>
       </div>
-    `;
-    list.insertAdjacentHTML("beforeend", submitBtnHTML);
+    `);
 
     document.getElementById("submit-answers").addEventListener("click", () => {
       submitAnswers(exam_id, localStorage.getItem("token"));
@@ -128,11 +145,15 @@ function startWebcamDetection(user_id, exam_id, token) {
           formData.append("frame", blob, "frame.jpg");
 
           try {
-            const res = await fetch(`${API_BASE}/video/feed`, {
+            const res = await fetch(`${API_BASE}/video/`, {
               method: "POST",
               headers: { "Authorization": `Bearer ${token}` },
               body: formData
             });
+
+            if (!res.ok) {
+              throw new Error(`Server responded with ${res.status}`);
+            }
 
             const result = await res.json();
             statusEl.textContent = result.count > 0 
@@ -158,26 +179,13 @@ function startWebcamDetection(user_id, exam_id, token) {
 
 async function submitAnswers(exam_id, token) {
   const answers = [];
-  let allAnswered = true;
-
   document.querySelectorAll(".question-block").forEach((block, index) => {
     const selected = block.querySelector("input[type='radio']:checked");
-    if (!selected) {
-      allAnswered = false;
-      block.style.border = "2px solid red"; // highlight missing
-    } else {
-      block.style.border = "none";
-    }
     answers.push({
       question_number: index + 1,
       selected_option: selected ? selected.value : null
     });
   });
-
-  if (!allAnswered) {
-    alert("⚠️ Please answer all questions before submitting.");
-    return;
-  }
 
   try {
     const res = await fetch(`${API_BASE}/exam/${exam_id}/submit`, {
@@ -191,19 +199,55 @@ async function submitAnswers(exam_id, token) {
 
     if (!res.ok) {
       const errText = await res.text();
-      alert(`Failed to submit answers. (${res.status})\n${errText}`);
-      return;
+      console.error(`Failed to submit answers. (${res.status})\n${errText}`);
+      return false;
     }
 
     const result = await res.json();
-    alert("✅ Answers submitted successfully!");
-    console.log(result);
-
-    // Stop webcam & redirect
-    logout();
+    console.log("✅ Answers submitted successfully!", result);
+    return true;
 
   } catch (err) {
     console.error("Error submitting answers:", err);
-    alert("Network error while submitting answers.");
+    return false;
   }
+}
+
+// --- Helper: Handle violation with auto-submit + logout ---
+async function handleViolation(type, exam_id, token) {
+  console.warn(`Violation detected: ${type}`);
+  await reportViolation(type);
+  const submitted = await submitAnswers(exam_id, token);
+  logout(); // Always logout after attempt
+}
+
+// --- Helper: Report violations to backend ---
+async function reportViolation(type) {
+  try {
+    await fetch(`${API_BASE}/monitor/violation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token")}`
+      },
+      body: JSON.stringify({
+        user_id: localStorage.getItem("user_id"),
+        exam_id: localStorage.getItem("current_exam_id"),
+        violation_type: type,
+        timestamp: new Date().toISOString()
+      })
+    });
+  } catch (err) {
+    console.error("Failed to report violation:", err);
+  }
+}
+
+// --- Helper: Detect incognito/private mode ---
+function detectIncognitoMode(callback) {
+  const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
+  if (!fs) {
+    callback(false);
+    return;
+  }
+  fs(window.TEMPORARY, 100, () => callback(false), () => callback(true));
 }

@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 import cv2
 import numpy as np
 import logging
@@ -12,7 +11,8 @@ import os
 from backend.database import get_db, init_db
 from backend.auth import router as auth_router
 from backend.exam import router as exam_router
-from backend import logs, detection, monitor  # cleaner import
+from backend import logs, detection, monitor
+from backend.models import Movement
 
 # ---------------- Logging ----------------
 logging.basicConfig(
@@ -44,7 +44,7 @@ origins = [
     "http://127.0.0.1:5500",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:8000",  # if serving frontend from backend
+    "http://localhost:8000",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -69,7 +69,9 @@ else:
     logger.warning("⚠️ Frontend folder not found; static files not being served.")
 
 # ---------------- Video Feed Endpoint ----------------
-@app.post("/video/feed")
+@app.post("/video")
+@app.post("/video/")
+@app.post("/video/feed")  # optional alias
 async def video_feed(
     user_id: int,
     exam_id: int,
@@ -87,17 +89,39 @@ async def video_feed(
         if img is None:
             raise HTTPException(status_code=400, detail="Invalid image data")
 
+        # Run detection (saves cropped images)
         _, logs_list = detection.detect_faces_and_movements(img, user_id, exam_id)
 
+        movement_type_map = {
+            "no_person_detected": 0,
+            "person_detected": 1,
+            "multiple_people_detected": 2,
+            "suspicious_movement": 3,
+            "mobile_phone_detected": 4
+        }
+
+        DB_SCHEMA = "Scorecards"  # or "dbo"
+        table_fqn = f"{DB_SCHEMA}.Movements"
+
         if logs_list:
-            insert_query = text("""
-                INSERT INTO Movements (user_id, exam_id, movement_type, timestamp, frame_image_path)
-                VALUES (:user_id, :exam_id, :movement_type, :timestamp, :frame_image_path)
+            rows = [
+                {
+                    "scorecard_id": exam_id,
+                    "type": movement_type_map.get(log["movement_type"], 0),
+                    "timestamp": log["timestamp"],
+                    "frame_graph_path": log["frame_image_path"],
+                }
+                for log in logs_list
+            ]
+
+            from sqlalchemy import text
+            insert_sql = text(f"""
+                INSERT INTO {table_fqn} (scorecard_id, type, timestamp, frame_graph_path)
+                VALUES (:scorecard_id, :type, :timestamp, :frame_graph_path)
             """)
-            for log in logs_list:
-                db.execute(insert_query, log)
+            db.execute(insert_sql, rows)
             db.commit()
-            logger.info(f"📝 Logged {len(logs_list)} movement(s) for user {user_id}, exam {exam_id}")
+            logger.info(f"📝 Logged {len(rows)} movement(s) for user {user_id}, exam {exam_id}")
 
         return {"status": "processed", "count": len(logs_list)}
 
@@ -129,6 +153,6 @@ def root():
             "login": "/auth/login",
             "users": "/auth/users",
             "exam_create": "/exam/create",
-            "video_feed": "/video/feed"
+            "video_feed": ["/video", "/video/", "/video/feed"]
         }
     }

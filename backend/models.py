@@ -126,3 +126,12 @@ class AnswerSubmit(BaseModel):
 
 class ExamSubmitRequest(BaseModel):
     answers: List[AnswerSubmit]
+
+class Movement(Base):
+    __tablename__ = "movements"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False)
+    movement_type = Column(String(50), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    frame_image_path = Column(String(255), nullable=True)
