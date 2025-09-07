@@ -1,125 +1,206 @@
-# backend/logs.py
+# backend/monitor.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
-
 from backend.database import get_db
 from backend.auth import get_current_user
-from backend.models import Movement  # ✅ ORM model
-from sqlalchemy import func
+from backend.models import Movement  # Assuming you have this ORM model
+from sqlalchemy import text
 
-router = APIRouter(prefix="/log", tags=["Logs"])
+router = APIRouter(prefix="/monitor", tags=["Monitor"])
 
 
-# ---------------- Pydantic Schemas ----------------
-class ScreenLog(BaseModel):
+# ---------------- Pydantic Schema ----------------
+class ViolationReport(BaseModel):
     user_id: int
     exam_id: int
-    app_name: str
-    tab_title: str
+    violation_type: str  # e.g., "tab_switch", "window_blur", "incognito_mode"
+    timestamp: str  # ISO format string
 
 
-# ---------------- Screen Logging ----------------
-@router.post("/screen")
-def log_screen(data: ScreenLog, db: Session = Depends(get_db)):
-    """
-    Log a screen/tab change event.
-    """
-    # If you have a ScreenLogs ORM model, use it here.
-    # For now, using raw SQLAlchemy Core insert via ORM session.execute
-    db.execute(
-        """
-        INSERT INTO ScreenLogs (user_id, exam_id, app_name, tab_title)
-        VALUES (:user_id, :exam_id, :app_name, :tab_title)
-        """,
-        data.dict()
-    )
-    db.commit()
-    return {"status": "logged"}
-
-
-# ---------------- Generate Report ----------------
-@router.get("/report/{exam_id}")
-def generate_report(exam_id: int, db: Session = Depends(get_db)):
-    """
-    Generate a cheating report for a given exam.
-    """
-    # Aggregate suspicious movements
-    result = db.query(
-        func.count(Movement.id).label("suspicious_count"),
-        func.string_agg(Movement.movement_type, ', ').label("movements"),
-        func.max(Movement.timestamp).label("last_event")
-    ).filter(Movement.exam_id == exam_id).first()
-
-    suspicious_count = result.suspicious_count or 0
-    movements_str = result.movements or ""
-    score = suspicious_count * 10
-
-    # Insert into Reports table (assuming it exists)
-    db.execute(
-        """
-        INSERT INTO Reports (user_id, exam_id, summary, cheating_score)
-        VALUES (
-            (SELECT TOP 1 user_id FROM Movements WHERE exam_id = :exam_id),
-            :exam_id,
-            :summary,
-            :score
-        )
-        """,
-        {
-            "exam_id": exam_id,
-            "summary": f"{suspicious_count} events: {movements_str}",
-            "score": score
-        }
-    )
-    db.commit()
-
-    return {
-        "cheating_score": score,
-        "details": {
-            "suspicious_count": suspicious_count,
-            "movements": movements_str,
-            "last_event": result.last_event
-        }
-    }
-
-
-# ---------------- Student Results ----------------
-@router.get("/report/user/{user_id}")
-def get_student_results(
-    user_id: int,
+# ---------------- Report Violation ----------------
+@router.post("/violation")
+async def report_violation(
+    data: ViolationReport,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """
-    Get exam results for a specific student.
-    Only the student themselves or an admin/invigilator can view.
+    Log a violation event during an exam (e.g., tab switch, window blur).
+    Accessible to students during exam or invigilators.
     """
-    role = current_user.get("role")
-    if role == "student" and current_user.get("id") != user_id:
+    try:
+        # Optional: Validate that user is taking the exam or is invigilator
+        role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+        user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+
+        if role == "student" and user_id != data.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Students can only report their own violations."
+            )
+
+        # Insert into Movements table (or create Violations table if preferred)
+        db.execute(
+            text("""
+                INSERT INTO dbo.Movements (user_id, exam_id, movement_type, timestamp)
+                VALUES (:user_id, :exam_id, :movement_type, :timestamp)
+            """),
+            {
+                "user_id": data.user_id,
+                "exam_id": data.exam_id,
+                "movement_type": data.violation_type,
+                "timestamp": data.timestamp
+            }
+        )
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Violation '{data.violation_type}' recorded for user {data.user_id}"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to record violation: {str(e)}"
+        )
+
+
+# ---------------- Get Active Violations (for Invigilator Dashboard) ----------------
+@router.get("/active-violations")
+async def get_active_violations(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Get recent violations for currently active exams.
+    Only accessible to invigilators or admins.
+    """
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["invigilator", "admin"]:
+        raise HTTPException(status_code=403, detail="Only invigilators or admins can view active violations")
+
+    query = text("""
+        SELECT 
+            m.id,
+            u.username,
+            e.title AS exam_title,
+            m.movement_type,
+            m.timestamp
+        FROM dbo.Movements m
+        JOIN dbo.Users u ON m.user_id = u.id
+        JOIN dbo.Exams e ON m.exam_id = e.id
+        WHERE e.start_time <= GETDATE() AND e.end_time >= GETDATE()
+        ORDER BY m.timestamp DESC
+        OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY
+    """)
+
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ---------------- Get Violations for Specific Exam ----------------
+@router.get("/violations/exam/{exam_id}")
+async def get_violations_for_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Get all violations for a specific exam.
+    Accessible to invigilators, admins, or the student themselves.
+    """
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+
+    # Allow student to view their own exam violations
+    if role == "student":
+        # Check if student has taken this exam
+        taken = db.execute(
+            text("SELECT 1 FROM dbo.StudentAnswers WHERE user_id = :uid AND exam_id = :eid"),
+            {"uid": user_id, "eid": exam_id}
+        ).fetchone()
+        if not taken:
+            raise HTTPException(status_code=403, detail="You did not take this exam")
+
+    elif role not in ["invigilator", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    query = """
+    query = text("""
         SELECT 
-            e.id AS exam_id,
-            e.title AS exam_title,
-            COUNT(sa.id) AS total_answered,
-            SUM(CASE WHEN sa.selected_option = m.correct_option THEN 1 ELSE 0 END) AS correct_count,
-            COUNT(DISTINCT mv.id) AS movement_count
-        FROM Exams e
-        LEFT JOIN StudentAnswers sa 
-            ON sa.exam_id = e.id AND sa.user_id = :uid
-        LEFT JOIN MCQs m 
-            ON sa.question_id = m.id
-        LEFT JOIN Movements mv 
-            ON mv.exam_id = e.id AND mv.user_id = :uid
-        WHERE e.id IN (
-            SELECT DISTINCT exam_id FROM StudentAnswers WHERE user_id = :uid
-        )
-        GROUP BY e.id, e.title
-        ORDER BY e.id DESC
+            m.id,
+            u.username,
+            m.movement_type,
+            m.timestamp,
+            m.frame_image_path
+        FROM dbo.Movements m
+        JOIN dbo.Users u ON m.user_id = u.id
+        WHERE m.exam_id = :exam_id
+        ORDER BY m.timestamp DESC
+    """)
+    rows = db.execute(query, {"exam_id": exam_id}).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+# ---------------- Get Unusual Detections (for Invigilator Dashboard) ----------------
+@router.get("/unusual-detections")
+async def get_unusual_detections(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
     """
-    rows = db.execute(query, {"uid": user_id}).fetchall()
+    Get recent unusual detections (e.g., tab switch, window blur, incognito mode).
+    Only accessible to invigilators or admins.
+    """
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["invigilator", "admin"]:
+        raise HTTPException(status_code=403, detail="Only invigilators or admins can view unusual detections")
+
+    query = text("""
+        SELECT 
+            u.username,
+            m.movement_type,
+            m.timestamp,
+            m.frame_image_path
+        FROM dbo.Movements m
+        JOIN dbo.Users u ON m.user_id = u.id
+        WHERE m.movement_type IN ('tab_switch', 'window_blur', 'incognito_mode', 'suspicious_movement')
+        ORDER BY m.timestamp DESC
+        OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY
+    """)
+
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+# ---------------- Get Active Students ----------------
+@router.get("/active-students")
+async def get_active_students(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Get list of students currently taking active exams.
+    Only accessible to invigilators or admins.
+    """
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["invigilator", "admin"]:
+        raise HTTPException(status_code=403, detail="Only invigilators or admins can view active students")
+
+    query = text("""
+        SELECT DISTINCT
+            u.id AS user_id,
+            u.username,
+            e.id AS exam_id,
+            e.title AS exam_title
+        FROM dbo.ActiveExams ae
+        JOIN dbo.Users u ON ae.user_id = u.id
+        JOIN dbo.Exams e ON ae.exam_id = e.id
+        WHERE GETDATE() BETWEEN e.start_time AND e.end_time
+        ORDER BY u.username ASC
+    """)
+
+    rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]

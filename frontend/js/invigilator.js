@@ -213,7 +213,6 @@ async function loadActiveStudents() {
     console.error("Error loading active students:", err);
   }
 }
-
 async function loadUnusualDetections() {
   try {
     const token = localStorage.getItem("token");
@@ -244,7 +243,6 @@ async function loadUnusualDetections() {
     console.error("Error loading unusual detections:", err);
   }
 }
-
 // ----------------- Navigation helpers -----------------
 
 function monitorStudent(user_id, exam_id) {

@@ -187,6 +187,13 @@ async function submitAnswers(exam_id, token) {
     });
   });
 
+  if (answers.length === 0) {
+    alert("No questions loaded or found. Cannot submit empty exam.");
+    return false;
+  }
+
+  console.log("📤 Submitting answers:", answers);
+
   try {
     const res = await fetch(`${API_BASE}/exam/${exam_id}/submit`, {
       method: "POST",
@@ -197,22 +204,80 @@ async function submitAnswers(exam_id, token) {
       body: JSON.stringify({ answers })
     });
 
+    console.log("📡 HTTP Status:", res.status);
+    const responseText = await res.text();
+    console.log("📡 Raw Response:", responseText);
+
     if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Failed to submit answers. (${res.status})\n${errText}`);
-      return false;
+      console.error(`❌ HTTP Error ${res.status}:`, responseText);
+      if (responseText.includes("already submitted")) {
+        alert("⚠️ You have already submitted this exam.");
+        const btn = document.getElementById("submit-answers");
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "Already Submitted";
+        }
+        return false;
+      } else {
+        alert(`❌ Submission failed: ${responseText}`);
+        return false;
+      }
     }
 
-    const result = await res.json();
-    console.log("✅ Answers submitted successfully!", result);
+    // Parse response
+    let result;
+    try {
+      result = JSON.parse(responseText);
+      console.log("✅ Parsed result:", result);
+    } catch (e) {
+      console.error("💥 JSON Parse Error:", e);
+      result = { status: "success", message: "Submission recorded" }; // Fallback
+    }
+
+    // Show success message
+    try {
+      alert("🎉 Your exam has been submitted successfully!");
+    } catch (e) {
+      console.warn("⚠️ Alert blocked or failed:", e);
+      // Still proceed
+    }
+
+    // Disable submit button
+    try {
+      const submitBtn = document.getElementById("submit-answers");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitted ✓";
+      }
+    } catch (e) {
+      console.error("💥 Button update failed:", e);
+    }
+
+    // REDIRECT — Try replace first, then fallback to href
+    console.log("🚀 Preparing to redirect to student.html...");
+    setTimeout(() => {
+      try {
+        console.log("→ Attempting window.location.replace...");
+        window.location.replace("student.html");
+      } catch (e) {
+        console.error("💥 Replace failed, trying href:", e);
+        try {
+          window.location.href = "student.html";
+        } catch (ex) {
+          console.error("💥 All redirects failed:", ex);
+          alert("Redirect failed. Please click OK and manually go to results page.");
+        }
+      }
+    }, 1500);
+
     return true;
 
   } catch (err) {
-    console.error("Error submitting answers:", err);
+    console.error("💥💥💥 CRITICAL ERROR in submitAnswers:", err);
+    alert("⚠️ Unexpected error. Please refresh the page.");
     return false;
   }
 }
-
 // --- Helper: Handle violation with auto-submit + logout ---
 async function handleViolation(type, exam_id, token) {
   console.warn(`Violation detected: ${type}`);

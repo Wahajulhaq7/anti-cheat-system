@@ -1,57 +1,59 @@
-from ultralytics import YOLO
-import cv2, os, numpy as np
+# backend/video.py
+
+from fastapi import APIRouter, File, HTTPException, UploadFile, Form, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from backend.database import get_db
+from backend.auth import get_current_user
+from backend import detection
+import cv2
+import numpy as np
 from datetime import datetime
-from config import FRAME_SAVE_PATH
+import os
+import logging
 
-model = YOLO("yolov8n.pt")  # or .to("cuda") if GPU available
+logger = logging.getLogger(__name__)
+
+FRAME_SAVE_PATH = "uploads/frames"
 os.makedirs(FRAME_SAVE_PATH, exist_ok=True)
-_last_positions = {}
 
-def detect_faces_and_movements(frame, user_id, exam_id):
-    # Run detection (not tracking) for robustness
-    results = model.predict(frame, classes=[0], conf=0.1)  # 0 = person
-    movement_log = []
+router = APIRouter(prefix="/video", tags=["Video"])
 
-    if not results or len(results[0].boxes) == 0:
-        movement_log.append({
-            "user_id": user_id,
-            "exam_id": exam_id,
-            "movement_type": "no_person_detected",
-            "timestamp": datetime.now(),
-            "frame_image_path": None
-        })
-        return frame, movement_log
+@router.post("/")
+async def process_frame(
+    frame: UploadFile = File(...),
+    user_id: int = Form(...),
+    exam_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        contents = await frame.read()
+        np_arr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-    boxes = results[0].boxes.xyxy.cpu().numpy()
+        if img is None:
+            raise HTTPException(status_code=400, detail="Invalid image")
 
-    movement_type = "multiple_people_detected" if len(boxes) > 1 else "person_detected"
+        _, movement_log = detection.detect_faces_and_movements(img, user_id, exam_id)
 
-    for box in boxes:
-        x1, y1, x2, y2 = map(int, box)
-        center = ((x1 + x2) // 2, (y1 + y2) // 2)
+        for log in movement_log:
+            db.execute(text("""
+                INSERT INTO dbo.Movements (user_id, exam_id, movement_type, timestamp, frame_image_path)
+                VALUES (:uid, :eid, :type, :ts, :path)
+            """), {
+                "uid": log["user_id"],
+                "eid": log["exam_id"],
+                "type": log["movement_type"],
+                "ts": log["timestamp"],
+                "path": log["frame_image_path"]
+            })
 
-        # Movement check
-        if user_id in _last_positions:
-            last_center = _last_positions[user_id]
-            if np.linalg.norm(np.array(center) - np.array(last_center)) > 50:
-                movement_type = "suspicious_movement"
+        db.commit()
+        logger.info("✅ Committed %d movements", len(movement_log))
 
-        _last_positions[user_id] = center
+        return {"status": "success", "count": len(movement_log), "movements": movement_log}
 
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        img_path = os.path.join(FRAME_SAVE_PATH, f"{user_id}_{exam_id}_{ts}.jpg")
-        cv2.imwrite(img_path, frame[y1:y2, x1:x2])
-
-        movement_log.append({
-            "user_id": user_id,
-            "exam_id": exam_id,
-            "movement_type": movement_type,
-            "timestamp": datetime.now(),
-            "frame_image_path": img_path
-        })
-
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(frame, movement_type, (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-    return frame, movement_log
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to process frame: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to process video frame")

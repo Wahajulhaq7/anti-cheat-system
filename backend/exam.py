@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from .database import get_db
 from .auth import get_current_user
+from backend.models import MCQ, StudentAnswer, ExamSubmitRequest
+from datetime import datetime
 
 router = APIRouter()
 
@@ -129,66 +131,54 @@ async def get_exam_questions(
 @router.post("/{exam_id}/submit")
 async def submit_exam_answers(
     exam_id: int,
-    payload: dict = Body(...),
+    request: ExamSubmitRequest,  # ✅ use Pydantic model for validation
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    # ✅ Get user ID
     user_id = (
         current_user.get("id")
         if isinstance(current_user, dict)
         else getattr(current_user, "id", None)
     )
-    if user_id is None:
+    if not user_id:
         raise HTTPException(status_code=401, detail="User not found")
-
-    answers = payload.get("answers", [])
-    if not answers:
+    # ✅ Prevent empty submissions
+    if not request.answers:
         raise HTTPException(status_code=400, detail="No answers provided")
 
-    try:
-        # Optional: prevent multiple submissions
-        existing = db.execute(text("""
-            SELECT COUNT(*) FROM dbo.StudentAnswers
-            WHERE user_id = :uid AND exam_id = :eid
-        """), {"uid": user_id, "eid": exam_id}).scalar()
+    # ✅ Prevent multiple submissions
+    existing_count = db.query(StudentAnswer).filter_by(
+        user_id=user_id,
+        exam_id=exam_id
+    ).count()
+    if existing_count > 0:
+        raise HTTPException(status_code=400, detail="You have already submitted this exam")
 
-        if existing > 0:
-            raise HTTPException(status_code=400, detail="You have already submitted this exam")
+    # ✅ Save answers
+    for ans in request.answers:
+        mcq = (
+            db.query(MCQ)
+            .filter(MCQ.exam_id == exam_id)
+            .order_by(MCQ.id.asc())
+            .offset(ans.question_number - 1)
+            .limit(1)
+            .first()
+        )
+        if not mcq:
+            continue
 
-        for ans in answers:
-            question_number = ans.get("question_number")
-            selected_option = ans.get("selected_option")
+        new_answer = StudentAnswer(
+            user_id=user_id,
+            exam_id=exam_id,
+            question_id=mcq.id,
+            selected_option=ans.selected_option,
+            submitted_at=datetime.utcnow()
+        )
+        db.add(new_answer)
 
-            # Get question_id from MCQs based on order
-            q_row = db.execute(text("""
-                SELECT id FROM dbo.MCQs
-                WHERE exam_id = :eid
-                ORDER BY id ASC
-                OFFSET :offset ROWS FETCH NEXT 1 ROWS ONLY
-            """), {"eid": exam_id, "offset": question_number - 1}).fetchone()
-
-            if not q_row:
-                continue
-
-            db.execute(text("""
-                INSERT INTO dbo.StudentAnswers (user_id, exam_id, question_id, selected_option)
-                VALUES (:uid, :eid, :qid, :opt)
-            """), {
-                "uid": user_id,
-                "eid": exam_id,
-                "qid": q_row.id,
-                "opt": selected_option
-            })
-
-        db.commit()
-        return {"status": "success", "message": "Answers saved"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
+    db.commit()
+    return {"status": "success", "message": "Answers saved"}
 
 # ✅ GET ALL EXAMS CREATED BY CURRENT INVIGILATOR
 @router.get("/my")
