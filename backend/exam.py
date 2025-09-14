@@ -20,14 +20,24 @@ async def get_available_exams(
     if role != "student":
         raise HTTPException(status_code=403, detail="Only students can view available exams")
 
-    # Fetch exams that are still active or upcoming
+    # Get user ID
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found")
+
+    # Fetch exams that are still active or upcoming AND not yet submitted by this student
     query = text("""
-        SELECT id, title, description, start_time, end_time, duration_minutes
-        FROM dbo.Exams
-        WHERE GETDATE() <= end_time
-        ORDER BY start_time ASC
+        SELECT e.id, e.title, e.description, e.start_time, e.end_time, e.duration_minutes
+        FROM dbo.Exams e
+        WHERE GETDATE() <= e.end_time
+        AND e.id NOT IN (
+            SELECT DISTINCT sa.exam_id 
+            FROM dbo.StudentAnswers sa 
+            WHERE sa.user_id = :user_id
+        )
+        ORDER BY e.start_time ASC
     """)
-    rows = db.execute(query).fetchall()
+    rows = db.execute(query, {"user_id": user_id}).fetchall()
 
     return [dict(row._mapping) for row in rows]
 
@@ -275,9 +285,14 @@ async def delete_exam(
         raise HTTPException(status_code=403, detail="You can only delete your own exams")
 
     try:
-        # ✅ Delete related data in order
+        # ✅ Delete related data in correct order (respecting foreign key constraints)
+        # First delete from ActiveExams (if table exists)
+        db.execute(text("DELETE FROM dbo.ActiveExams WHERE exam_id = :eid"), {"eid": exam_id})
+        # Then delete student answers
         db.execute(text("DELETE FROM dbo.StudentAnswers WHERE exam_id = :eid"), {"eid": exam_id})
+        # Then delete MCQs
         db.execute(text("DELETE FROM dbo.MCQs WHERE exam_id = :eid"), {"eid": exam_id})
+        # Finally delete the exam
         db.execute(text("DELETE FROM dbo.Exams WHERE id = :eid"), {"eid": exam_id})
         db.commit()
         return {"message": "Exam deleted successfully"}
@@ -321,19 +336,6 @@ async def start_exam(
         return {"status": "success", "message": "Exam started"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# ✅ GET ACTIVE STUDENTS
-@router.get("/active-students")
-def get_active_students(db: Session = Depends(get_db)):
-    rows = db.execute(text("""
-        SELECT DISTINCT u.id AS user_id, u.username, ae.exam_id
-        FROM ActiveExams ae
-        JOIN Users u ON ae.user_id = u.id
-        JOIN Exams e ON ae.exam_id = e.id
-        WHERE GETDATE() BETWEEN e.start_time AND e.end_time
-    """)).fetchall()
-    return [dict(r._mapping) for r in rows]
 
 
 # ✅ GET ALL EXAMS (ADMIN VIEW)
@@ -400,6 +402,27 @@ async def get_student_answers(
     """)
     rows = db.execute(query, {"eid": exam_id, "uid": user_id}).fetchall()
     return [dict(row._mapping) for row in rows]
+
+@router.get("/active")
+async def get_active_exams(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """Get all active exams (for admin/invigilator use)"""
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["admin", "invigilator"]:
+        raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
+
+    query = text("""
+        SELECT id, title, description, start_time, end_time, duration_minutes, created_by
+        FROM Exams
+        WHERE GETDATE() BETWEEN start_time AND end_time
+        OR end_time > GETDATE()
+        ORDER BY start_time ASC
+    """)
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
 
 @router.get("/{exam_id}")
 async def get_exam(exam_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):

@@ -1,8 +1,7 @@
 # backend/database.py
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 from config import DB_SERVER, DB_NAME
-from .models import Base
 
 # Connection string using Windows Authentication
 conn_str = (
@@ -19,8 +18,6 @@ engine = create_engine(f"mssql+pyodbc:///?odbc_connect={conn_str}")
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for models
-Base = declarative_base()
 
 # Dependency to get DB session
 def get_db():

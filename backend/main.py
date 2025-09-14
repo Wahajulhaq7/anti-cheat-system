@@ -96,8 +96,7 @@ app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(exam_router, prefix="/exam", tags=["Exam"])
 app.include_router(logs.router)
 app.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
-##app.include_router(video_router)  # ✅ Handles /video/
-app.include_router(video_router , prefix="/video", tags=["Video"])
+app.include_router(video_router, prefix="/video", tags=["Video"])  # ✅ Handles /video/
 
 # ---------------- Static Frontend ----------------
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")

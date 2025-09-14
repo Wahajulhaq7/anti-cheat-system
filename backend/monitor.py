@@ -9,7 +9,7 @@ from backend.auth import get_current_user
 from backend.models import Movement  # Assuming you have this ORM model
 from sqlalchemy import text
 
-router = APIRouter(prefix="/monitor", tags=["Monitor"])
+router = APIRouter(tags=["Monitor"])
 
 
 # ---------------- Pydantic Schema ----------------
