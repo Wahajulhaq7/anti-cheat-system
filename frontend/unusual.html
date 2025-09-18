@@ -6,6 +6,7 @@
 </head>
 <body>
   <h1>📂 Unusual Detection Images</h1>
+  <div id="studentInfo"></div>
   <div id="imagesContainer">Loading...</div>
 
   <script>
@@ -19,6 +20,22 @@
     async function loadUnusualImages() {
       try {
         const token = localStorage.getItem("token");
+        
+        // Fetch student info
+        const userRes = await fetch(`${API_BASE}/auth/users`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (userRes.ok) {
+            const users = await userRes.json();
+            const student = users.find(u => u.id == user_id);
+            if (student) {
+                document.getElementById("studentInfo").innerHTML = `
+                    <p><strong>Student:</strong> ${student.username} (ID: ${student.id})</p>
+                    <p><strong>Exam ID:</strong> ${exam_id}</p>
+                `;
+            }
+        }
+
         const res = await fetch(`${API_BASE}/monitor/unusual-images?user_id=${user_id}&exam_id=${exam_id}`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
