@@ -1,18 +1,23 @@
 # backend/database.py
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from config import DB_SERVER, DB_NAME
 
-# Connection string using Windows Authentication
+# --- Amazon RDS SQL Server connection details ---
+DB_SERVER = "anticheatdb.cde20uwiohat.eu-north-1.rds.amazonaws.com,1433"
+DB_NAME = "Anticheat"  # ✅ Updated to match your target DB name
+DB_USER = "admin"            # 👈 replace with your RDS SQL user (if needed)
+DB_PASSWORD = "wahajulhaq123"  # 👈 replace with your RDS SQL password
+
+# Build ODBC connection string for SQL Authentication
 conn_str = (
     f"DRIVER={{ODBC Driver 17 for SQL Server}};"
     f"SERVER={DB_SERVER};"
     f"DATABASE={DB_NAME};"
-    f"Trusted_Connection=yes;"
-    f"Integrated Security=SSPI;"
+    f"UID={DB_USER};"
+    f"PWD={DB_PASSWORD};"
 )
 
-# Create engine
+# Create SQLAlchemy engine
 engine = create_engine(f"mssql+pyodbc:///?odbc_connect={conn_str}")
 
 # Session factory
@@ -27,7 +32,8 @@ def get_db():
     finally:
         db.close()
 
-# Initialize DB (create table if not exists)
+
+# Initialize DB (optional: create Users table if not exists)
 def init_db():
     with engine.connect() as conn:
         conn.execute(text("""
@@ -42,6 +48,7 @@ def init_db():
             )
         """))
         conn.commit()
+
 
 # Test connection
 def test_connection():
