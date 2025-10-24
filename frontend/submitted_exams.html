@@ -4,26 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Submitted Exams</title>
-  <link rel="stylesheet" href="css/invigilator.css" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-  <nav class="nav-bar">
-    <h1>✅ Submitted Exams</h1>
-    <div class="nav-buttons">
-      <button onclick="location.href='invigilator.html'" class="btn-nav">🏠 Dashboard</button>
-      <button onclick="location.href='manage_exams.html'" class="btn-nav">📄 My Exams</button>
-      <span id="username"></span>
-      <button onclick="logout()" class="btn-logout">Logout</button>
+<body class="bg-gray-100">
+  <nav class="bg-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex justify-between">
+            <div class="flex space-x-4">
+                <div>
+                    <a href="#" class="flex items-center py-5 px-2 text-gray-700">
+                        <span class="font-bold">✅ Submitted Exams</span>
+                    </a>
+                </div>
+            </div>
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="invigilator.html" class="py-2 px-3 bg-yellow-400 hover:bg-yellow-300 text-yellow-900 hover:text-yellow-800 rounded transition duration-300">🏠 Dashboard</a>
+                <a href="manage_exams.html" class="py-2 px-3 bg-blue-500 hover:bg-blue-400 text-white rounded transition duration-300">📄 My Exams</a>
+                <span id="username" class="py-5 px-3"></span>
+                <button onclick="logout()" class="py-2 px-3 bg-red-500 hover:bg-red-400 text-white rounded transition duration-300">Logout</button>
+            </div>
+        </div>
     </div>
   </nav>
 
-  <div class="dashboard-container">
-    <section class="exam-section">
-      <h2>Student Submissions</h2>
-      <div id="submissionsList" class="exam-list">
-        <p class="placeholder">Loading submitted exams...</p>
-      </div>
-    </section>
+  <div class="container mx-auto px-4 py-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">Student Submissions</h2>
+    <div id="submissionsList" class="bg-white shadow-md rounded my-6">
+        <table class="min-w-full leading-normal">
+            <thead>
+                <tr>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Exam</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Submission Date</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Submissions will be loaded here -->
+            </tbody>
+        </table>
+    </div>
   </div>
 
   <!-- Logout & Navigation Script -->

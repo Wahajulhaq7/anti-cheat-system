@@ -59,7 +59,6 @@ function logout() {
     clearInterval(detectionInterval);
     detectionInterval = null;
   }
-
   const video = document.getElementById("webcam");
   if (video && video.srcObject) {
     video.srcObject.getTracks().forEach(track => track.stop());
@@ -306,7 +305,6 @@ async function reportViolation(type) {
     console.error("Failed to report violation:", err);
   }
 }
-
 // --- Helper: Detect incognito/private mode ---
 function detectIncognitoMode(callback) {
   const fs = window.RequestFileSystem || window.webkitRequestFileSystem;

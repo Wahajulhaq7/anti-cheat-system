@@ -4,66 +4,63 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reports - Admin</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Fixed: removed extra space in href -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
   <style>
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 20px 0;
-    }
-    .report-table th, .report-table td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: left;
-    }
-    .report-table th {
-      background-color: #f4f4f4;
-    }
-    .btn-report {
-      padding: 6px 12px;
-      background: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    .btn-report:hover {
-      background: #0056b3;
-    }
-    .back-btn {
-      display: inline-block;
-      margin-top: 20px;
-      color: #007bff;
-      text-decoration: none;
-    }
-    .back-btn:hover {
-      text-decoration: underline;
+    .modal {
+      background-color: rgba(0,0,0,0.5);
     }
   </style>
 </head>
-<body>
-  <div class="container">
-    <h2>📋 Cheating Reports</h2>
-    <button onclick="fetchReports()" class="btn-report">🔍 Load All Student Reports</button>
+<body class="bg-gray-100">
+  <div class="container mx-auto px-4 py-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">📋 Cheating Reports</h2>
+    <div class="flex justify-between items-center mb-4">
+      <button onclick="fetchReports()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">🔍 Load All Student Reports</button>
+      <a href="dashboard.html" class="text-blue-500 hover:text-blue-800">← Back to Dashboard</a>
+    </div>
 
-    <table id="reportsTable" class="report-table">
-      <thead>
-        <tr>
-          <th>Student ID</th>
-          <th>Student Name</th>
-          <th>Exam ID</th>
-          <th>Exam Title</th>
-          <th>Date</th>
-          <th>Cheating Score</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="reportsBody">
-        <!-- Filled by JS -->
-      </tbody>
-    </table>
+    <div class="bg-white shadow-md rounded my-6">
+      <table class="min-w-full leading-normal">
+        <thead>
+          <tr>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student ID</th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student Name</th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Exam ID</th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Exam Title</th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cheating Score</th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="reportsBody">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+  <!-- Modal for detailed report -->
+  <div id="reportModal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center" style="display:none;">
+    <div class="modal-content bg-white rounded-lg shadow-lg p-6 w-11/12 md:w-1/2 lg:w-1/3 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-3">
+        <h2 id="modalTitle" class="text-2xl font-bold">Detailed Report</h2>
+        <span class="close-btn cursor-pointer text-2xl" onclick="closeModal()">&times;</span>
+      </div>
+      <div id="modalBody" class="text-gray-700">
+        <!-- Report details will be injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-size Image Modal -->
+  <div id="imageModal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden">
+    <div class="modal-content bg-white rounded-lg shadow-xl p-4 w-11/12 md:w-3/4 lg:w-1/2 relative max-h-[90vh] overflow-auto">
+      <span class="close-btn cursor-pointer text-3xl absolute top-2 right-3 z-10"
+            onclick="document.getElementById('imageModal').classList.add('hidden')">&times;</span>
+      <img id="modalImage" class="w-full rounded shadow" />
+      <div id="caption" class="text-center mt-3 text-gray-700 font-medium"></div>
+    </div>
   </div>
 
   <script src="js/report.js"></script>

@@ -106,6 +106,14 @@ if os.path.isdir(FRONTEND_DIR):
 else:
     logger.warning("⚠️ Frontend folder not found; static files not being served.")
 
+# ---------------- Static Files for Uploads ----------------
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+if os.path.isdir(UPLOADS_DIR):
+    app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+    logger.info(f"📂 Serving uploaded files from {UPLOADS_DIR}")
+else:
+    logger.warning("⚠️ Uploads folder not found; uploaded files not being served.")
+
 
 # ---------------- Health Check ----------------
 @app.get("/health")

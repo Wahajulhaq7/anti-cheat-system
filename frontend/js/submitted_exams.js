@@ -23,8 +23,8 @@ window.onload = () => {
 
 // Fetch and render submitted exams
 async function loadSubmittedExams() {
-  const list = document.getElementById("submissionsList");
-  list.innerHTML = "<p class='placeholder'>Loading submitted exams...</p>";
+  const tbody = document.querySelector("#submissionsList tbody");
+  tbody.innerHTML = "<tr><td colspan='4' class='text-center py-4'>Loading submitted exams...</td></tr>";
 
   try {
     const res = await fetch(`${API_BASE}/exam/submitted`, {
@@ -41,38 +41,38 @@ async function loadSubmittedExams() {
     const submissions = await res.json();
 
     if (!Array.isArray(submissions) || submissions.length === 0) {
-      list.innerHTML = "<p class='placeholder'>No exams have been submitted yet.</p>";
+      tbody.innerHTML = "<tr><td colspan='4' class='text-center py-4'>No exams have been submitted yet.</td></tr>";
       return;
     }
 
-    list.innerHTML = "";
+    tbody.innerHTML = "";
 
     submissions.forEach(sub => {
       const submittedAt = new Date(sub.submitted_at).toLocaleString();
-      const div = document.createElement("div");
-      div.className = "exam-item";
-      div.innerHTML = `
-        <div>
-          <strong>${sub.exam_title || "Untitled Exam"}</strong>
-          <p>Student: ${sub.student_username}</p>
-          <p><small>Submitted: ${submittedAt}</small></p>
-          <p><small>Unusual Detections: ${sub.unusual_count || 0}</small></p>
-        </div>
-        <div>
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+          <p class="text-gray-900 whitespace-no-wrap">${sub.student_username}</p>
+        </td>
+        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+          <p class="text-gray-900 whitespace-no-wrap">${sub.exam_title || "Untitled Exam"}</p>
+        </td>
+        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+          <p class="text-gray-900 whitespace-no-wrap">${submittedAt}</p>
+        </td>
+        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
           <button 
-            class="btn-view" 
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" 
             onclick="viewAnswers(${sub.exam_id}, ${sub.student_id})">
             📝 View Answers
           </button>
-        </div>
+        </td>
       `;
-      list.appendChild(div);
+      tbody.appendChild(tr);
     });
 
   } catch (err) {
     console.error("Error loading submissions:", err);
-    list.innerHTML = `<p class="placeholder" style="color:red;">
-      Failed to load submissions.
-    </p>`;
+    tbody.innerHTML = `<tr><td colspan='4' class='text-center py-4 text-red-500'>Failed to load submissions.</td></tr>`;
   }
 }
