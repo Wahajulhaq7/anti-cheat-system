@@ -316,3 +316,36 @@ td {
   border-radius: 4px;
   cursor: pointer;
 }
+/* =========================================
+   REPORT PAGE SPECIFIC STYLES
+   ========================================= */
+
+/* Action buttons inside the report table */
+.btn-report-view {
+  background: transparent;
+  border: 1px solid #3b82f6; /* Blue border */
+  color: #3b82f6;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 5px;
+  transition: all 0.2s;
+}
+.btn-report-view:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.btn-report-pdf {
+  background: transparent;
+  border: 1px solid #22c55e; /* Green border */
+  color: #22c55e;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+.btn-report-pdf:hover {
+  background: rgba(34, 197, 94, 0.1);
+}

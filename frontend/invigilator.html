@@ -4,23 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Invigilator Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/invigilator.css" />
 </head>
 <body>
 <nav class="nav-bar">
-  <h1>👮‍♂️ Invigilator Dashboard</h1>
+  <h1><i class="fa-solid fa-user-secret"></i> Invigilator Dashboard</h1>
   <div class="nav-buttons">
-    <button onclick="location.href='students.html'" class="btn-nav">👥 Students</button>
-    <button onclick="location.href='manage_exams.html'" class="btn-nav">📄 Exams Created</button>
-     <button onclick="location.href='submitted_exams.html'" class="btn-nav">✅ Submitted Exams</button>
-    <button onclick="location.href='unusual.html'" class="btn-nav">🚨 Unusual Detections</button>
-    <span id="username"></span>
-    <button onclick="logout()" class="btn-logout">Logout</button>
+    <button onclick="location.href='students.html'" class="btn-nav">
+      <i class="fa-solid fa-users"></i> Students
+    </button>
+    <button onclick="location.href='manage_exams.html'" class="btn-nav">
+      <i class="fa-solid fa-file-lines"></i> Exams Created
+    </button>
+     <button onclick="location.href='submitted_exams.html'" class="btn-nav">
+      <i class="fa-solid fa-clipboard-check"></i> Submitted Exams
+    </button>
+    <button onclick="location.href='unusual.html'" class="btn-nav">
+      <i class="fa-solid fa-triangle-exclamation"></i> Unusual Detections
+    </button>
+    
+    <div class="user-menu">
+      <span id="username"><i class="fa-solid fa-user"></i> Invigilator</span>
+      <button onclick="logout()" class="btn-logout">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
+    </div>
   </div>
 </nav>
 
 <div class="dashboard-container">
-  <!-- Stats Cards -->
   <div class="stats-grid">
     <div class="stat-card">
       <h3>Total Students</h3>
@@ -40,39 +53,41 @@
     </div>
   </div>
 
-  <!-- Exam Management -->
   <section class="exam-section">
-    <h2>Create MCQ Exam</h2>
+    <h2><i class="fa-solid fa-file-circle-plus"></i> Create MCQ Exam</h2>
     <form id="examForm">
       <div class="exam-header">
         <input type="text" id="examTitle" placeholder="Enter exam title" required>
       </div>
       <div id="questionsContainer"></div>
-      <button type="button" onclick="addQuestion()">+ Add Question</button>
-      <button type="submit" class="create-btn">Create Exam</button>
+      <div class="form-actions">
+        <button type="button" onclick="addQuestion()" class="btn-add-question">
+          <i class="fa-solid fa-plus"></i> Add Question
+        </button>
+        <button type="submit" class="create-btn">
+          <i class="fa-solid fa-check"></i> Create Exam
+        </button>
+      </div>
     </form>
 
     <div id="examsList" class="exam-list"></div>
   </section>
 
-  <!-- Active Students Monitoring -->
   <section class="monitor-section">
-    <h2>Live Student Monitoring</h2>
+    <h2><i class="fa-solid fa-video"></i> Live Student Monitoring</h2>
     <div id="activeStudentsList" class="student-grid">
       <p class="placeholder">Loading active students...</p>
     </div>
   </section>
 
-  <!-- Unusual Detections -->
   <section class="alerts-section">
-    <h2>Unusual Detections</h2>
+    <h2><i class="fa-solid fa-bell"></i> Unusual Detections</h2>
     <div id="unusualList" class="alerts-list">
       <p class="placeholder">Loading unusual detections...</p>
     </div>
   </section>
 </div>
 
-<!-- Logout function -->
 <script>
   function logout() {
     localStorage.clear();

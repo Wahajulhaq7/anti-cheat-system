@@ -1,123 +1,147 @@
-/* students.css */
+/* =========================================
+   GLOBAL RESET & DARK THEME
+   ========================================= */
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #f4f6f9;
-  color: #333;
+    background-color: #1a1f36; /* Dark Navy Background */
+    color: #ffffff;
+    min-height: 100vh;
 }
 
+/* =========================================
+   NAVIGATION BAR
+   ========================================= */
 .nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: #2c3e50;
-  color: white;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background-color: #1e253f;
+    border-bottom: 1px solid #2d3748;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.nav-bar h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.user-info span {
-  font-weight: bold;
+.nav-bar h1 i {
+    color: #38bdf8; /* Light Blue Accent */
 }
 
-.btn-logout {
-  background: #e74c3c;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
+/* Back Button in Navbar */
+.btn-back-nav {
+    background: transparent;
+    color: #a0aec0;
+    border: 1px solid #4a5568;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
 }
 
-.btn-logout:hover {
-  background: #c0392b;
+.btn-back-nav:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: #fff;
 }
 
+/* =========================================
+   CONTAINER & CONTENT
+   ========================================= */
 .container {
-  padding: 2rem;
+    padding: 30px 40px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-.container h2 {
-  margin-bottom: 1rem;
-  color: #2c3e50;
+/* Content Card */
+.content-card {
+    background-color: #1e253f;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    margin-top: 20px;
 }
 
-.container p {
-  margin-bottom: 1.5rem;
-  color: #555;
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #2d3748;
+    padding-bottom: 15px;
 }
 
+.header-row h2 {
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-row p {
+    color: #a0aec0;
+    font-size: 14px;
+}
+
+.header-row strong {
+    color: #fff;
+    font-size: 18px;
+}
+
+/* =========================================
+   TABLE STYLES
+   ========================================= */
 .students-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.students-table th,
-.students-table td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
 }
 
 .students-table th {
-  background: #3498db;
-  color: white;
+    text-align: left;
+    color: #a0aec0;
+    font-size: 13px;
+    padding: 15px;
+    border-bottom: 1px solid #4a5568;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: transparent;
+}
+
+.students-table td {
+    padding: 15px;
+    border-bottom: 1px solid #2d3748;
+    color: #e2e8f0;
+    font-size: 14px;
+    vertical-align: middle;
 }
 
 .students-table tr:hover {
-  background: #f1f1f1;
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
-.students-table .placeholder {
-  text-align: center;
-  color: #777;
-  font-style: italic;
-}
-
-/* Action Buttons */
-.action-btn {
-  padding: 0.5rem 0.75rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-right: 0.5rem;
-}
-
-.btn-delete {
-  background: #e74c3c;
-  color: white;
-}
-
-.btn-delete:hover {
-  background: #c0392b;
-}
-.btn-back {
-  background: #6c757d;
-  color: white;
-  border: none;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 1rem;
-}
-
-.btn-back:hover {
-  background: #5a6268;
+.placeholder {
+    text-align: center;
+    color: #a0aec0;
+    font-style: italic;
+    padding: 30px;
 }

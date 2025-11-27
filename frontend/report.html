@@ -4,65 +4,54 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reports - Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
-  <style>
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 20px 0;
-    }
-    .report-table th, .report-table td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: left;
-    }
-    .report-table th {
-      background-color: #f4f4f4;
-    }
-    .btn-report {
-      padding: 6px 12px;
-      background: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    .btn-report:hover {
-      background: #0056b3;
-    }
-    .back-btn {
-      display: inline-block;
-      margin-top: 20px;
-      color: #007bff;
-      text-decoration: none;
-    }
-    .back-btn:hover {
-      text-decoration: underline;
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <h2>📋 Cheating Reports</h2>
-    <button onclick="fetchReports()" class="btn-report">🔍 Load All Student Reports</button>
 
-    <table id="reportsTable" class="report-table">
-      <thead>
-        <tr>
-          <th>Student ID</th>
-          <th>Student Name</th>
-          <th>Exam ID</th>
-          <th>Exam Title</th>
-          <th>Date</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="reportsBody">
-        <!-- Filled by JS -->
-      </tbody>
-    </table>
+  <nav class="navbar">
+    <div class="brand">
+      <i class="fa-solid fa-shield-halved"></i> Anti-Cheat Exam System
+    </div>
+    <div class="nav-links">
+      <a href="dashboard.html"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+  </nav>
 
-    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+  <div class="main-content">
+    
+    <div class="dashboard-banner" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2><i class="fa-solid fa-file-invoice-dollar"></i> Cheating Reports</h2>
+        <p>View and analyze student exam reports.</p>
+      </div>
+      <button onclick="fetchReports()" class="btn-create" style="width: auto;">
+        <i class="fa-solid fa-rotate-right"></i> Load All Reports
+      </button>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h3><i class="fa-solid fa-list"></i> Student Reports</h3>
+      </div>
+
+      <table id="reportsTable">
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th>Exam ID</th>
+            <th>Exam Title</th>
+            <th>Date</th>
+            <th>Risk Score</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="reportsBody">
+          </tbody>
+      </table>
+    </div>
+
   </div>
 
   <script src="js/report.js"></script>

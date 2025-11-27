@@ -69,11 +69,11 @@ async function fetchReports() {
                     </span>
                 </td>
                 <td>
-                    <button class="btn-report" onclick="generateDetailedReport(${report.student_id}, ${report.exam_id})">
-                        View Details
+                    <button class="btn-report-view" onclick="generateDetailedReport(${report.student_id}, ${report.exam_id})">
+                        <i class="fa-solid fa-eye"></i> View
                     </button>
-                    <button class="btn-report" onclick="generatePDFReport(${report.student_id}, ${report.exam_id})" style="margin-left: 5px; background: #28a745;">
-                        📄 PDF Report
+                    <button class="btn-report-pdf" onclick="generatePDFReport(${report.student_id}, ${report.exam_id})">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
                     </button>
                 </td>
             `;
@@ -165,9 +165,9 @@ async function generatePDFReport(studentId, examId) {
 
     try {
         // Show loading message
-        const button = event.target;
-        const originalText = button.textContent;
-        button.textContent = "Generating PDF...";
+        const button = event.currentTarget; // Changed to currentTarget to get the button element
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
         button.disabled = true;
 
         // Call the PDF generation endpoint
@@ -200,7 +200,7 @@ async function generatePDFReport(studentId, examId) {
         }, 1000);
 
         // Reset button
-        button.textContent = originalText;
+        button.innerHTML = originalHTML;
         button.disabled = false;
 
     } catch (err) {
@@ -208,8 +208,8 @@ async function generatePDFReport(studentId, examId) {
         alert(`❌ ${err.message}`);
         
         // Reset button on error
-        const button = event.target;
-        button.textContent = "📄 PDF Report";
+        const button = event.currentTarget;
+        button.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
         button.disabled = false;
     }
 }
