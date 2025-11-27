@@ -88,7 +88,8 @@ def detect_faces_and_movements(img, user_id, exam_id):
                             "exam_id": exam_id,
                             "movement_type": movement_type,
                             "timestamp": timestamp,
-                            "frame_image_path": frame_path,
+                            # NEW CODE:
+                            "frame_image_path": f"/uploads/frames/{filename}",
                             "confidence": confidence,
                             "person_count": person_count
                         })
@@ -108,7 +109,7 @@ def detect_faces_and_movements(img, user_id, exam_id):
                         "exam_id": exam_id,
                         "movement_type": "no_person_detected",
                         "timestamp": timestamp,
-                        "frame_image_path": frame_path,
+                        "frame_image_path": os.path.join("frames", filename),
                         "confidence": 0.0,
                         "person_count": 0
                     })
@@ -128,7 +129,7 @@ def detect_faces_and_movements(img, user_id, exam_id):
             "exam_id": exam_id,
             "movement_type": "detection_error",
             "timestamp": timestamp,
-            "frame_image_path": frame_path,
+            "frame_image_path": os.path.join("frames", filename),
             "confidence": 0.0,
             "person_count": 0
         })

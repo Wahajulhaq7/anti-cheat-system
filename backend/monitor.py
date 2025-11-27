@@ -204,3 +204,36 @@ async def get_active_students(
 
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
+
+# ---------------- Get YOLO-based Unusual Movements (captured frames) ----------------
+@router.get("/unusual-movements")
+async def get_unusual_movements(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Return unusual movement records joined with username.
+    Only admin/invigilator allowed.
+    These records are generated from YOLO detections (frames saved in uploads/frames).
+    """
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["admin", "invigilator"]:
+        raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
+
+    query = text("""
+        SELECT 
+            m.id,
+            m.user_id,
+            u.username,
+            m.exam_id,
+            m.movement_type,
+            m.timestamp,
+            m.frame_image_path
+        FROM dbo.Movements m
+        JOIN dbo.Users u ON m.user_id = u.id
+        WHERE m.movement_type IN ('multiple_persons', 'person_absent', 'no_person_detected', 'detection_error')
+        ORDER BY m.timestamp DESC
+    """)
+    
+    rows = db.execute(query).fetchall()
+    return [dict(r._mapping) for r in rows]

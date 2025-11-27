@@ -1,27 +1,25 @@
 import sys
 import os
-sys.path.append(os.path.dirname(__file__))  # ✅ Add current dir to path
 
-from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
+# Add current directory to Python path
+sys.path.append(os.path.dirname(__file__))
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
 import cv2
-import numpy as np
 import logging
 from contextlib import asynccontextmanager
-import os
 import gc
 import signal
-import sys
 
+# Import routers
 from backend.monitor import router as monitor_router
-from backend.database import get_db, init_db
+from backend.database import init_db
 from backend.auth import router as auth_router
 from backend.exam import router as exam_router
 from backend import logs, detection
-from backend.models import Movement
-from backend.detection import router as video_router  # ✅ Import video_router
+from backend.detection import router as video_router
 
 # ---------------- Logging ----------------
 logging.basicConfig(
@@ -30,7 +28,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------- Lifespan with Cleanup ----------------
+# ---------------- Lifespan Manager ----------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting up the Anti-Cheat Detection API...")
@@ -39,7 +37,7 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("🛑 Shutting down the Anti-Cheat Detection API...")
 
-    # ✅ Cleanup: Clear YOLO model from memory if exists
+    # Cleanup YOLO model
     try:
         if hasattr(detection, 'model') and detection.model is not None:
             del detection.model
@@ -48,7 +46,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ Failed to cleanup model: {e}")
 
-    # ✅ Cleanup: Release OpenCV resources (if any)
+    # Release OpenCV resources
     try:
         cv2.destroyAllWindows()
         logger.info("✅ OpenCV resources released")
@@ -56,7 +54,6 @@ async def lifespan(app: FastAPI):
         logger.warning(f"⚠️ Failed to release OpenCV: {e}")
 
     logger.info("✅ Shutdown complete. Safe to exit.")
-
 
 # ---------------- Signal Handler ----------------
 def signal_handler(sig, frame):
@@ -66,8 +63,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-
-# ---------------- App Init ----------------
+# ---------------- App Initialization ----------------
 app = FastAPI(
     title="Anti-Cheat Detection API",
     version="1.0.0",
@@ -75,7 +71,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# ---------------- CORS ----------------
+# ---------------- CORS Middleware ----------------
 origins = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
@@ -83,6 +79,7 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:8000",
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -94,26 +91,27 @@ app.add_middleware(
 # ---------------- Routers ----------------
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(exam_router, prefix="/exam", tags=["Exam"])
-app.include_router(logs.router)
+# ✅ Fixed: remove redundant prefix, since logs.py already has prefix="/log"
+app.include_router(logs.router, tags=["Logs"])
 app.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
-app.include_router(video_router, prefix="/video", tags=["Video"])  # ✅ Handles /video/
+app.include_router(video_router, prefix="/video", tags=["Video"])
 
-# ---------------- Static Frontend ----------------
+# ---------------- Static File Serving ----------------
+# Serve frontend (HTML, CSS, JS)
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.isdir(FRONTEND_DIR):
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
-    logger.info(f"📂 Serving static frontend from {FRONTEND_DIR}")
+    logger.info(f"📂 Serving static frontend from: {os.path.abspath(FRONTEND_DIR)}")
 else:
     logger.warning("⚠️ Frontend folder not found; static files not being served.")
 
-# ---------------- Static Files for Uploads ----------------
+# Serve uploaded files (images, frames, etc.)
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 if os.path.isdir(UPLOADS_DIR):
     app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
-    logger.info(f"📂 Serving uploaded files from {UPLOADS_DIR}")
+    logger.info(f"📂 Serving uploaded files from: {os.path.abspath(UPLOADS_DIR)}")
 else:
     logger.warning("⚠️ Uploads folder not found; uploaded files not being served.")
-
 
 # ---------------- Health Check ----------------
 @app.get("/health")
@@ -124,8 +122,7 @@ def health_check():
         "service": "video-proctoring"
     }
 
-
-# ---------------- Root ----------------
+# ---------------- Root Endpoint ----------------
 @app.get("/")
 def root():
     return {
@@ -138,6 +135,7 @@ def root():
             "users": "/auth/users",
             "exam_create": "/exam/create",
             "video_feed": "/video/",
-            "monitor": "/monitor/"
+            "monitor": "/monitor/",
+            "reports": "/log/reports/all"
         }
     }

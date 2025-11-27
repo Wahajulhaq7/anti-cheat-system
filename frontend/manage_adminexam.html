@@ -4,20 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Exams - Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/manage_adminexam.css">
 </head>
 <body>
     <header>
-        <h1>Manage Exams</h1>
+        <h1><i class="fa-solid fa-shield-halved"></i> Manage Exams</h1>
         <nav>
-            <a href="dashboard.html">Dashboard</a>
+            <a href="dashboard.html"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
             <button onclick="logout()">Logout</button>
         </nav>
     </header>
 
     <main>
         <section class="exam-list">
-            <h2>Exams by Username</h2>
+            <h2><i class="fa-solid fa-list"></i> Exams by Username</h2>
             <table>
                 <thead>
                     <tr>
@@ -29,8 +30,7 @@
                     </tr>
                 </thead>
                 <tbody id="examTableBody">
-                    <!-- Dynamic rows will be inserted here -->
-                </tbody>
+                    </tbody>
             </table>
         </section>
     </main>
@@ -38,8 +38,11 @@
     <script src="js/manage_adminexam.js"></script>
     <script>
         function logout() {
-            localStorage.removeItem("formObj");
-            window.location.href = "login.html";
+            if(confirm("Are you sure you want to log out?")){
+                localStorage.removeItem("formObj"); // Assuming formObj or token
+                localStorage.clear();
+                window.location.href = "login.html";
+            }
         }
     </script>
 </body>

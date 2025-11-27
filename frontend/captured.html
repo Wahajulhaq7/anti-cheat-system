@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Unusual Detections - Admin</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body {
+      background: #f7f9fc;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 30px auto;
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #007bff;
+      color: #fff;
+      text-transform: uppercase;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+    img.detection-img {
+      width: 100px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 5px;
+    }
+    nav {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      align-items: center;
+    }
+    nav a, nav button {
+      background: #007bff;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 0.9em;
+    }
+    nav a:hover, nav button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a href="dashboard.html">← Back to Dashboard</a>
+      <button onclick="logout()">Logout</button>
+    </nav>
+
+    <h2>📸 Unusual Detections</h2>
+    <p style="text-align:center;color:#666;">Below are the captured frames where unusual activity was detected.</p>
+
+    <table id="detectionsTable">
+      <thead>
+        <tr>
+          <th>Frame</th>
+          <th>Student</th>
+          <th>Exam ID</th>
+          <th>Type</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows will be dynamically added by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <script src="js/captured.js"></script>
+</body>
+</html>

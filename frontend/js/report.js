@@ -1,186 +1,249 @@
-// js/report.js
+// frontend/js/report.js
 
-function getAuthToken() {
-  return localStorage.getItem('token');
+// Prevent non-admins from accessing
+const role = localStorage.getItem("role");
+if (!role || role !== "admin") {
+    alert("Access denied. Admins only.");
+    window.location.href = "login.html";
 }
 
-// Helper: Clean DB-stored path for use in URL
-function cleanImagePath(dbPath) {
-  if (!dbPath) return null;
-
-  // Remove leading 'uploads/' if present (since URL already has /uploads/)
-  let clean = dbPath.replace(/^uploads[\\/]/i, '');
-
-  // Replace backslashes with forward slashes (for Windows paths)
-  clean = clean.replace(/\\/g, '/');
-
-  // Remove any accidental duplicate slashes
-  clean = clean.replace(/\/+/g, '/');
-
-  return clean;
-}
-
-async function fetchReports() {
-  const tbody = document.getElementById('reportsBody');
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Loading reports...</td></tr>';
-
-  try {
-    const token = getAuthToken();
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    const res = await fetch('http://localhost:8000/log/reports/all', { headers });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errText}`);
-    }
-
-    const reports = await res.json();
-
-    if (!Array.isArray(reports) || reports.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500">No cheating reports found.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = '';
-    reports.forEach(report => {
-      const date = report.exam_date ? new Date(report.exam_date).toLocaleString() : 'N/A';
-      const scoreClass = 
-        report.cheating_score > 75 ? 'text-red-600' :
-        report.cheating_score > 30 ? 'text-yellow-600' : 'text-green-600';
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">${report.student_id}</td>
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">${report.student_name || '—'}</td>
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">${report.exam_id}</td>
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">${report.exam_title}</td>
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">${date}</td>
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">
-          <span class="font-semibold ${scoreClass}">${report.cheating_score}%</span>
-        </td>
-        <td class="px-5 py-4 border-b border-gray-200 text-sm">
-          <button onclick="showDetailedReport(${report.student_id}, ${report.exam_id})"
-                  class="text-blue-600 hover:text-blue-900 font-medium underline">View Details</button>
-        </td>
-      `;
-      tbody.appendChild(row);
-    });
-  } catch (err) {
-    console.error('Failed to load reports:', err);
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500">Error: ${err.message}</td></tr>`;
-  }
-}
-
-async function showDetailedReport(studentId, examId) {
-  const modal = document.getElementById('reportModal');
-  const modalBody = document.getElementById('modalBody');
-  const modalTitle = document.getElementById('modalTitle');
-
-  modalTitle.textContent = `Report: Student ${studentId} • Exam ${examId}`;
-  modalBody.innerHTML = '<p class="text-center py-4">Loading detailed report...</p>';
-  modal.style.display = 'flex';
-
-  try {
-    const token = getAuthToken();
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    const res = await fetch(`http://localhost:8000/log/report/detailed/${studentId}/${examId}`, { headers });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errText}`);
-    }
-
-    const data = await res.json();
-
-    let html = `
-      <div class="space-y-2 text-sm">
-        <p><span class="font-medium">Student:</span> ${data.student_name}</p>
-        <p><span class="font-medium">Exam:</span> ${data.exam_title}</p>
-        <p><span class="font-medium">Date:</span> ${data.exam_date ? new Date(data.exam_date).toLocaleString() : 'N/A'}</p>
-        <p><span class="font-medium">Cheating Score:</span> 
-          <span class="${data.cheating_score > 75 ? 'text-red-600' : data.cheating_score > 30 ? 'text-yellow-600' : 'text-green-600'} font-bold">
-            ${data.cheating_score}%
-          </span>
-        </p>
-        <p><span class="font-medium">Suspicious Events:</span> ${data.suspicious_events}</p>
-        <p><span class="font-medium">Questions Answered:</span> ${data.total_answered || 0}</p>
-      </div>
-    `;
-
-    if (data.movements && data.movements.length > 0) {
-      html += `<h3 class="font-bold text-lg mt-4 mb-2">📸 Unusual Detection Images (${data.movements.length})</h3>`;
-      html += `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">`;
-
-      data.movements.forEach(m => {
-        if (!m.frame_image_path) {
-          html += `<div class="border rounded p-2 text-xs text-gray-500">No image recorded</div>`;
-          return;
-        }
-
-        // ✅ Clean the path from DB
-        const cleanPath = cleanImagePath(m.frame_image_path);
-        if (!cleanPath) {
-          html += `<div class="border rounded p-2 text-xs text-gray-500">Invalid image path</div>`;
-          return;
-        }
-
-        const imageUrl = `http://localhost:8000/uploads/${cleanPath}`;
-        const timestamp = m.timestamp ? new Date(m.timestamp).toLocaleString() : 'Unknown';
-        const caption = `${m.movement_type} at ${timestamp}`;
-
-        html += `
-          <div class="border rounded overflow-hidden shadow-sm">
-            <img src="${imageUrl}" 
-                 alt="${m.movement_type}"
-                 class="w-full h-32 object-cover cursor-pointer hover:opacity-90"
-                 onerror="this.src='https://via.placeholder.com/150x150?text=Image+Not+Found'; this.alt='Image Not Found'"
-                 onclick="openImageModal('${imageUrl.replace(/'/g, "\\'")}', \`${caption.replace(/`/g, "'")}\`)">
-            <div class="p-2 text-xs text-gray-700 truncate">${m.movement_type}</div>
-            <div class="p-2 text-xs text-gray-500">${timestamp}</div>
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-    } else {
-      html += `<p class="mt-4 text-gray-600 italic">No unusual activity images recorded.</p>`;
-    }
-
-    html += `
-      <div class="mt-6 pt-4 border-t border-gray-200">
-        <a href="http://localhost:8000/log/report/pdf/${studentId}/${examId}" 
-           target="_blank"
-           class="inline-flex items-center px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-900">
-          📄 Download PDF Report
-        </a>
-      </div>
-    `;
-
-    modalBody.innerHTML = html;
-  } catch (err) {
-    console.error('Error loading detailed report:', err);
-    modalBody.innerHTML = `<p class="text-red-500">Failed to load report: ${err.message}</p>`;
-  }
-}
-
-function closeModal() {
-  document.getElementById('reportModal').style.display = 'none';
-}
-
-function openImageModal(src, caption) {
-  const img = document.getElementById('modalImage');
-  const cap = document.getElementById('caption');
-  const modal = document.getElementById('imageModal');
-
-  img.src = src;
-  cap.textContent = caption;
-  modal.classList.remove('hidden');
-}
-
-window.onclick = function(event) {
-  const reportModal = document.getElementById('reportModal');
-  const imageModal = document.getElementById('imageModal');
-  
-  if (event.target === reportModal) closeModal();
-  if (event.target === imageModal) imageModal.classList.add('hidden');
+// Load reports on page load
+window.onload = () => {
+    const reportsBody = document.getElementById("reportsBody");
+    reportsBody.innerHTML = "<tr><td colspan='7'>Loading reports...</td></tr>";
+    fetchReports();
 };
+
+// Fetch all cheating reports from the backend
+async function fetchReports() {
+    const token = localStorage.getItem("token");
+    const reportsBody = document.getElementById("reportsBody");
+
+    if (!token) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    try {
+        // Fetch all cheating reports
+        const reportsRes = await fetch("http://localhost:8000/log/reports/all", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!reportsRes.ok) {
+            if (reportsRes.status === 403) {
+                throw new Error("Access denied. Admin/Invigilator access required.");
+            }
+            throw new Error("Failed to load reports");
+        }
+
+        const reports = await reportsRes.json();
+
+        // Render table
+        reportsBody.innerHTML = "";
+        if (reports.length === 0) {
+            reportsBody.innerHTML = "<tr><td colspan='7'>No cheating reports found</td></tr>";
+            return;
+        }
+
+        reports.forEach(report => {
+            const tr = document.createElement("tr");
+            const examDate = new Date(report.exam_date).toLocaleDateString();
+            const cheatingScore = report.cheating_score || 0;
+            const suspiciousEvents = report.suspicious_events || 0;
+            
+            // Color code based on cheating score
+            let scoreColor = "#28a745"; // Green for low risk
+            if (cheatingScore >= 50) scoreColor = "#ffc107"; // Yellow for medium risk
+            if (cheatingScore >= 75) scoreColor = "#dc3545"; // Red for high risk
+
+            tr.innerHTML = `
+                <td>${report.student_id}</td>
+                <td>${report.student_name}</td>
+                <td>${report.exam_id}</td>
+                <td>${report.exam_title}</td>
+                <td>${examDate}</td>
+                <td>
+                    <span style="color: ${scoreColor}; font-weight: bold;">
+                        ${cheatingScore}% (${suspiciousEvents} events)
+                    </span>
+                </td>
+                <td>
+                    <button class="btn-report" onclick="generateDetailedReport(${report.student_id}, ${report.exam_id})">
+                        View Details
+                    </button>
+                    <button class="btn-report" onclick="generatePDFReport(${report.student_id}, ${report.exam_id})" style="margin-left: 5px; background: #28a745;">
+                        📄 PDF Report
+                    </button>
+                </td>
+            `;
+            reportsBody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error("Fetch reports error:", err);
+        reportsBody.innerHTML = `<tr><td colspan="7">❌ ${err.message}</td></tr>`;
+    }
+}
+
+// Generate detailed report using real backend data
+async function generateDetailedReport(studentId, examId) {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    try {
+        const response = await fetch(`http://localhost:8000/log/report/detailed/${studentId}/${examId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            if (response.status === 403) {
+                throw new Error("Access denied. Admin/Invigilator access required.");
+            }
+            if (response.status === 404) {
+                throw new Error("Report not found.");
+            }
+            throw new Error("Failed to load detailed report");
+        }
+
+        const report = await response.json();
+        
+        // Format movements for display
+        let movementDetails = "No suspicious activities detected.";
+        if (report.movements && report.movements.length > 0) {
+            movementDetails = report.movements.map(m => 
+                `• ${m.movement_type} at ${new Date(m.timestamp).toLocaleString()}`
+            ).join('\n');
+        }
+
+        // Create detailed report message
+        const reportMessage = `📄 Detailed Cheating Report
+
+Student: ${report.student_name}
+Exam: ${report.exam_title}
+Date: ${new Date(report.exam_date).toLocaleDateString()}
+
+📊 SUMMARY:
+• Total Questions Answered: ${report.total_answered}
+• Suspicious Events: ${report.suspicious_events}
+• Cheating Score: ${report.cheating_score}%
+
+🚨 SUSPICIOUS ACTIVITIES:
+${movementDetails}
+
+Risk Level: ${getRiskLevel(report.cheating_score)}`;
+
+        alert(reportMessage);
+
+    } catch (err) {
+        console.error("Detailed report error:", err);
+        alert(`❌ ${err.message}`);
+    }
+}
+
+// Helper function to determine risk level
+function getRiskLevel(score) {
+    if (score === 0) return "✅ No Risk";
+    if (score <= 20) return "🟢 Low Risk";
+    if (score <= 50) return "🟡 Medium Risk";
+    if (score <= 75) return "🟠 High Risk";
+    return "🔴 Very High Risk";
+}
+
+// Generate PDF report and open in new tab
+async function generatePDFReport(studentId, examId) {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    try {
+        // Show loading message
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = "Generating PDF...";
+        button.disabled = true;
+
+        // Call the PDF generation endpoint
+        const response = await fetch(`http://localhost:8000/log/report/pdf/${studentId}/${examId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            if (response.status === 403) {
+                throw new Error("Access denied. Admin/Invigilator access required.");
+            }
+            if (response.status === 404) {
+                throw new Error("Report not found.");
+            }
+            throw new Error("Failed to generate PDF report");
+        }
+
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+        
+        // Create a URL for the blob
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        // Open PDF in new tab
+        window.open(pdfUrl, '_blank');
+        
+        // Clean up the URL after a short delay
+        setTimeout(() => {
+            URL.revokeObjectURL(pdfUrl);
+        }, 1000);
+
+        // Reset button
+        button.textContent = originalText;
+        button.disabled = false;
+
+    } catch (err) {
+        console.error("PDF generation error:", err);
+        alert(`❌ ${err.message}`);
+        
+        // Reset button on error
+        const button = event.target;
+        button.textContent = "📄 PDF Report";
+        button.disabled = false;
+    }
+}
+
+// Keep the old function for backward compatibility
+async function generateReport(studentId, examId) {
+    return generateDetailedReport(studentId, examId);
+}
+
+// Export all student exam data to CSV
+function exportCSV() {
+    const rows = [
+        ["Student ID", "Student Name", "Exam ID", "Exam Title", "Date"]
+    ];
+
+    // Get all rows from table
+    document.querySelectorAll("#reportsBody tr").forEach(tr => {
+        const cells = tr.querySelectorAll("td");
+        if (cells.length > 0) {
+            const row = [];
+            // Only push first 5 columns (skip Actions)
+            for (let i = 0; i < 5; i++) {
+                row.push(cells[i].textContent.trim());
+            }
+            rows.push(row);
+        }
+    });
+
+    const csvContent = rows.map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `student_exam_reports_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+}

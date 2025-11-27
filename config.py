@@ -15,5 +15,5 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # Media
-FRAME_SAVE_PATH = os.path.join("media", "frames")
+FRAME_SAVE_PATH = os.path.join("uploads", "frames")
 os.makedirs(FRAME_SAVE_PATH, exist_ok=True)

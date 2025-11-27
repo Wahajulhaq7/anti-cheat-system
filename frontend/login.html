@@ -4,52 +4,66 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login - Anti-Cheat System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
-  <style>
-    /* Eye icon container */
-    .password-container {
-      position: relative;
-    }
-
-    /* Style for eye icon */
-    .password-toggle {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      cursor: pointer;
-      font-size: 18px;
-      color: #888;
-    }
-
-    .password-toggle:hover {
-      color: #555;
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <h2>🔐 Anti-Cheat Exam System</h2>
-    <form id="loginForm">
-      <input type="text" id="username" placeholder="Username" required />
+
+  <nav class="navbar">
+    <div class="brand">
+      <i class="fa-solid fa-shield-halved"></i> Anti-Cheat Exam System
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div class="login-card">
       
-      <!-- Password container with eye icon -->
-      <div class="password-container">
-        <input type="password" id="password" placeholder="Password" required />
-        <span class="password-toggle" onclick="togglePassword()">
-          👁️
-        </span>
+      <div class="card-header">
+        <h3><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</h3>
       </div>
 
-      <button type="submit">Login</button>
-    </form>
-    <p id="error" class="error"></p>
+      <div class="card-body">
+        <form id="loginForm">
+          
+          <div class="input-group">
+            <label for="username">Username</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-user input-icon"></i>
+              <input type="text" id="username" placeholder="Enter Username" required />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-lock input-icon"></i>
+              <input type="password" id="password" placeholder="Enter Password" required />
+              <span class="password-toggle" onclick="togglePassword()">
+                <i class="fa-solid fa-eye"></i>
+              </span>
+            </div>
+          </div>
+
+          <button type="submit" class="login-btn">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Login
+          </button>
+        </form>
+        <p id="error" class="error"></p>
+
+        <div class="info-box">
+          <p class="info-title"><i class="fa-solid fa-circle-info"></i> Login Information:</p>
+          <ul>
+            <li>For Admin: Use your provided admin credentials</li>
+            <li>For Students: Use your Name and assigned password</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="js/auth.js"></script>
-
-  <script>
-    // Toggle password visibility
+  <script src="js/login.js"></script> <script>
+    // Toggle password visibility (Updated to work with FontAwesome icon)
     function togglePassword() {
       const passwordInput = document.getElementById("password");
       const type = passwordInput.getAttribute("type") === "password" ? "text" : "password";
