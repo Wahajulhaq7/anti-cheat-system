@@ -4,91 +4,61 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Unusual Detections - Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
   <style>
-    body {
-      background: #f7f9fc;
-      font-family: Arial, sans-serif;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 30px auto;
-      background: #fff;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    h2 {
-      text-align: center;
-      color: #333;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      padding: 12px 15px;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-    }
-    th {
-      background-color: #007bff;
-      color: #fff;
-      text-transform: uppercase;
-    }
-    tr:hover {
-      background-color: #f1f1f1;
-    }
+    /* Specific style for detection images that isn't in global css */
     img.detection-img {
       width: 100px;
       height: 60px;
       object-fit: cover;
       border-radius: 5px;
-    }
-    nav {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 15px;
-      align-items: center;
-    }
-    nav a, nav button {
-      background: #007bff;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-size: 0.9em;
-    }
-    nav a:hover, nav button:hover {
-      background: #0056b3;
+      border: 1px solid #4a5568;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <nav>
-      <a href="dashboard.html">← Back to Dashboard</a>
-      <button onclick="logout()">Logout</button>
-    </nav>
 
-    <h2>📸 Unusual Detections</h2>
-    <p style="text-align:center;color:#666;">Below are the captured frames where unusual activity was detected.</p>
+  <nav class="navbar">
+    <div class="brand">
+      <i class="fa-solid fa-shield-halved"></i> Anti-Cheat Exam System
+    </div>
+    <div class="nav-links">
+      <a href="dashboard.html"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+      <a href="report.html"><i class="fa-solid fa-file-invoice"></i> Reports</a>
+      <a href="manage_adminexam.html"><i class="fa-solid fa-file-circle-plus"></i> Exams</a>
+      <a href="captured.html" class="active"><i class="fa-solid fa-camera"></i> Detections</a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </div>
+  </nav>
 
-    <table id="detectionsTable">
-      <thead>
-        <tr>
-          <th>Frame</th>
-          <th>Student</th>
-          <th>Exam ID</th>
-          <th>Type</th>
-          <th>Timestamp</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Rows will be dynamically added by JS -->
-      </tbody>
-    </table>
+  <div class="main-content">
+    
+    <div class="dashboard-banner">
+      <h2><i class="fa-solid fa-camera"></i> Unusual Detections</h2>
+      <p>Monitor captured frames where unusual activity was detected.</p>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h3><i class="fa-solid fa-list"></i> Detections Log</h3>
+      </div>
+
+      <table id="detectionsTable">
+        <thead>
+          <tr>
+            <th>Frame</th>
+            <th>Student</th>
+            <th>Exam ID</th>
+            <th>Type</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          </tbody>
+      </table>
+    </div>
+
   </div>
 
   <script src="js/captured.js"></script>

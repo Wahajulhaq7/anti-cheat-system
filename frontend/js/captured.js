@@ -54,9 +54,15 @@ async function loadDetections() {
       if (loadedDetections.has(detId)) return; // skip if already loaded
       loadedDetections.add(detId);
 
-      const imageUrl = det.frame_image_path.startsWith("http")
-        ? det.frame_image_path
-        : `http://localhost:8000/uploads/frames/${det.frame_image_path.split("/").pop()}`;
+ let path = det.frame_image_path.replace(/\\/g, "/");
+
+// remove accidental leading uploads/
+if (path.startsWith("uploads/")) {
+  path = path.replace("uploads/", "");
+}
+
+const imageUrl = `http://localhost:8000/uploads/${path}`;
+ 
 
       const tr = document.createElement("tr");
       tr.innerHTML = `

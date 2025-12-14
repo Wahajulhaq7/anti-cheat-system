@@ -1,31 +1,53 @@
-<!-- frontend/student.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Results</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <!-- Navbar -->
   <nav class="nav-bar">
-    <h1>📊 My Exam Results</h1>
+    <h1><i class="fa-solid fa-chart-pie"></i> My Exam Results</h1>
     <div class="nav-buttons">
-      <button onclick="location.href='available_exams.html'" class="btn-nav">📝 Available Exams</button>
-      <button onclick="logout()" class="btn-logout">Logout</button>
+      <button onclick="location.href='available_exams.html'" class="btn-nav">
+        <i class="fa-solid fa-file-pen"></i> Available Exams
+      </button>
+      <div class="user-menu">
+        <span id="username"></span>
+        <button onclick="logout()" class="btn-logout">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+      </div>
     </div>
   </nav>
 
-  <!-- Main Content -->
   <div class="container">
-    <h2>📄 Your Results</h2>
-    <div id="results-list">
-      <p>Loading results...</p>
+    <div class="content-card">
+      <div class="header-row">
+        <h2><i class="fa-solid fa-file-signature"></i> Exam History</h2>
+      </div>
+
+      <div class="table-container">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>Exam Title</th>
+              <th>Exam ID</th>
+              <th>Score</th>
+              <th>Suspicious Acts</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+            <tr><td colspan="5" class="placeholder">Loading results...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="js/student.js"></script>
 </body>
 </html>

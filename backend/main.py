@@ -97,21 +97,22 @@ app.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 app.include_router(video_router, prefix="/video", tags=["Video"])
 
 # ---------------- Static File Serving ----------------
-# Serve frontend (HTML, CSS, JS)
-FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.isdir(FRONTEND_DIR):
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
-    logger.info(f"📂 Serving static frontend from: {os.path.abspath(FRONTEND_DIR)}")
-else:
-    logger.warning("⚠️ Frontend folder not found; static files not being served.")
 
-# Serve uploaded files (images, frames, etc.)
+# ✅ Serve uploaded files FIRST (IMPORTANT)
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 if os.path.isdir(UPLOADS_DIR):
     app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
     logger.info(f"📂 Serving uploaded files from: {os.path.abspath(UPLOADS_DIR)}")
 else:
     logger.warning("⚠️ Uploads folder not found; uploaded files not being served.")
+
+# Serve frontend (HTML, CSS, JS) LAST
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    logger.info(f"📂 Serving static frontend from: {os.path.abspath(FRONTEND_DIR)}")
+else:
+    logger.warning("⚠️ Frontend folder not found; static files not being served.")
 
 # ---------------- Health Check ----------------
 @app.get("/health")

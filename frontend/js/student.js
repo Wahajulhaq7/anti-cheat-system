@@ -29,117 +29,81 @@ function displayUsername() {
   const username = localStorage.getItem("username");
   const usernameSpan = document.getElementById("username");
   if (username && usernameSpan) {
-    usernameSpan.textContent = `👋 ${username}`;
+    usernameSpan.innerHTML = `<i class="fa-solid fa-user-graduate"></i> ${username}`;
   }
 }
 
 /**
- * Load available exams (for exams.html)
- */
-async function loadExams() {
-  const token = localStorage.getItem("token");
-  const list = document.getElementById("exam-list");
-  if (!list) return;
-
-  list.innerHTML = "<p>Loading exams...</p>";
-
-  try {
-    const res = await fetch("http://localhost:8000/exam/available", {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
-    });
-
-    if (!res.ok) {
-      list.innerHTML = "<p>Failed to load exams.</p>";
-      return;
-    }
-
-    const exams = await res.json();
-
-    if (exams.length === 0) {
-      list.innerHTML = "<p>No exams available.</p>";
-      return;
-    }
-
-    list.innerHTML = exams.map(exam => `
-      <div class="exam-item">
-        <strong>${exam.title}</strong>
-        <button class="btn-start" onclick="startExam(${exam.id})">Start Exam</button>
-      </div>
-    `).join("");
-  } catch (err) {
-    console.error("Error loading exams:", err);
-    list.innerHTML = "<p>Network error. Could not load exams.</p>";
-  }
-}
-
-/**
- * Load student results (for student.html)
+ * Load student results (Updated for Table Layout)
  */
 async function loadResults() {
   const user_id = localStorage.getItem("user_id");
   const token = localStorage.getItem("token");
-  const list = document.getElementById("results-list");
-  if (!list) return;
+  const tbody = document.getElementById("resultsBody");
+  
+  if (!tbody) return;
 
   if (!user_id) {
-    list.innerHTML = "<p>User ID missing — please log in again.</p>";
+    tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>User ID missing — please log in again.</td></tr>";
     return;
   }
 
-  list.innerHTML = "<p>Loading results...</p>";
-
   try {
     const res = await fetch(`http://localhost:8000/log/report/user/${user_id}`, {
-
       headers: {
         "Authorization": `Bearer ${token}`
       }
     });
 
     if (!res.ok) {
-      list.innerHTML = "<p>Failed to load results.</p>";
+      tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>Failed to load results.</td></tr>";
       return;
     }
 
     const reports = await res.json();
 
     if (reports.length === 0) {
-      list.innerHTML = "<p>No results yet.</p>";
+      tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>No exam results found.</td></tr>";
       return;
     }
-list.innerHTML = reports.map(r => {
-  const scorePercent = r.total_answered > 0 
-    ? ((r.correct_count / r.total_answered) * 100).toFixed(1) 
-    : 0;
-  const statusClass = r.movement_count > 5 ? "alert" : "success";
-  const statusText = r.movement_count > 5 ? "Suspicious" : "Normal";
 
-  return `
-    <div class="result-item">
-      <p><strong>Exam:</strong> ${r.exam_title} (ID: ${r.exam_id})</p>
-      <p><strong>Score:</strong> ${r.correct_count}/${r.total_answered} (${scorePercent}%)</p>
-      <p><strong>Movements Detected:</strong> ${r.movement_count}</p>
-      <p><strong>Status:</strong> 
-        <span class="status ${statusClass}">${statusText}</span>
-      </p>
-    </div>
-  `;
-}).join("");
+    // Render Table Rows
+    tbody.innerHTML = reports.map(r => {
+      const scorePercent = r.total_answered > 0 
+        ? ((r.correct_count / r.total_answered) * 100).toFixed(1) 
+        : 0;
+      
+      const statusClass = r.movement_count > 5 ? "alert" : "success";
+      const statusText = r.movement_count > 5 ? "Suspicious" : "Clean";
+      const iconClass = r.movement_count > 5 ? "fa-circle-exclamation" : "fa-check-circle";
+
+      return `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <i class="fa-solid fa-file-lines" style="color: #a855f7; font-size: 18px;"></i>
+              <strong>${r.exam_title}</strong>
+            </div>
+          </td>
+          <td>#${r.exam_id}</td>
+          <td>
+            <span style="font-weight: bold; color: white;">${r.correct_count}/${r.total_answered}</span> 
+            <span style="color: #a0aec0; font-size: 12px;">(${scorePercent}%)</span>
+          </td>
+          <td>${r.movement_count}</td>
+          <td>
+            <span class="status ${statusClass}">
+              <i class="fa-solid ${iconClass}"></i> ${statusText}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join("");
 
   } catch (err) {
     console.error("Error loading results:", err);
-    list.innerHTML = "<p>Network error. Could not load results.</p>";
+    tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>Network error. Could not load results.</td></tr>";
   }
-}
-
-/**
- * Start an exam
- */
-function startExam(exam_id) {
-  localStorage.setItem("current_exam_id", exam_id);
-  window.location.href = "exam.html";
 }
 
 /**
@@ -152,16 +116,13 @@ function logout() {
 
 /**
  * Page-specific initialization
- * Student is now redirected to exams.html after login
  */
 window.onload = () => {
   if (!checkAuth()) return;
   displayUsername();
-
-  const path = window.location.pathname;
-  if (path.includes("startexam.html")) {
-    loadExams();
-  } else if (path.includes("student.html")) {
+  
+  // Call loadResults only if on student.html (results page)
+  if (document.getElementById("resultsBody")) {
     loadResults();
   }
 };
