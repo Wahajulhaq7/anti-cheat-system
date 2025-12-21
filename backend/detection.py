@@ -15,7 +15,9 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-FRAME_SAVE_PATH = "uploads/frames"
+# ✅ FIX: Use ABSOLUTE path based on project root
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # project root
+FRAME_SAVE_PATH = os.path.join(BASE_DIR, "uploads", "frames")
 os.makedirs(FRAME_SAVE_PATH, exist_ok=True)
 
 # Initialize YOLO model
@@ -65,7 +67,12 @@ def detect_faces_and_movements(img, user_id, exam_id):
                         ])
 
                         timestamp = datetime.now()
-                        filename = f"{user_id}_{exam_id}_{timestamp.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+                        filename = (
+                            f"{user_id}_{exam_id}_"
+                            f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
+                            f"{uuid.uuid4().hex[:6]}.jpg"
+                        )
+
                         frame_path = os.path.join(FRAME_SAVE_PATH, filename)
                         cv2.imwrite(frame_path, img)
 
@@ -80,7 +87,7 @@ def detect_faces_and_movements(img, user_id, exam_id):
                             "exam_id": exam_id,
                             "movement_type": movement_type,
                             "timestamp": timestamp,
-                            "frame_image_path": f"frames/{filename}",
+                            "frame_image_path": f"frames/{filename}",  # ✅ keep relative path
                             "confidence": confidence,
                             "person_count": person_count
                         })
@@ -92,7 +99,12 @@ def detect_faces_and_movements(img, user_id, exam_id):
 
                 if len(movement_log) == 0:
                     timestamp = datetime.now()
-                    filename = f"{user_id}_{exam_id}_{timestamp.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+                    filename = (
+                        f"{user_id}_{exam_id}_"
+                        f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
+                        f"{uuid.uuid4().hex[:6]}.jpg"
+                    )
+
                     frame_path = os.path.join(FRAME_SAVE_PATH, filename)
                     cv2.imwrite(frame_path, img)
 
@@ -111,7 +123,12 @@ def detect_faces_and_movements(img, user_id, exam_id):
     except Exception as e:
         logger.error(f"❌ Detection error: {e}")
         timestamp = datetime.now()
-        filename = f"{user_id}_{exam_id}_{timestamp.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+        filename = (
+            f"{user_id}_{exam_id}_"
+            f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
+            f"{uuid.uuid4().hex[:6]}.jpg"
+        )
+
         frame_path = os.path.join(FRAME_SAVE_PATH, filename)
         cv2.imwrite(frame_path, img)
 

@@ -18,6 +18,7 @@ class ViolationReport(BaseModel):
     exam_id: int
     violation_type: str  # e.g., "tab_switch", "window_blur", "incognito_mode"
     timestamp: str  # ISO format string
+    frame_image_path: str | None = None  # <--- UPDATED: Added this field so the API accepts the image path
 
 
 # ---------------- Report Violation ----------------
@@ -42,17 +43,18 @@ async def report_violation(
                 detail="Students can only report their own violations."
             )
 
-        # Insert into Movements table (or create Violations table if preferred)
+        # Insert into Movements table (UPDATED: Added frame_image_path to insert statement)
         db.execute(
             text("""
-                INSERT INTO dbo.Movements (user_id, exam_id, movement_type, timestamp)
-                VALUES (:user_id, :exam_id, :movement_type, :timestamp)
+                INSERT INTO dbo.Movements (user_id, exam_id, movement_type, timestamp, frame_image_path)
+                VALUES (:user_id, :exam_id, :movement_type, :timestamp, :frame_image_path)
             """),
             {
                 "user_id": data.user_id,
                 "exam_id": data.exam_id,
                 "movement_type": data.violation_type,
-                "timestamp": data.timestamp
+                "timestamp": data.timestamp,
+                "frame_image_path": data.frame_image_path  # <--- UPDATED: Saving the path to DB
             }
         )
         db.commit()
