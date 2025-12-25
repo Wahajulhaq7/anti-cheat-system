@@ -91,7 +91,6 @@ app.add_middleware(
 # ---------------- Routers ----------------
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(exam_router, prefix="/exam", tags=["Exam"])
-# ✅ Fixed: remove redundant prefix, since logs.py already has prefix="/log"
 app.include_router(logs.router, tags=["Logs"])
 app.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 app.include_router(video_router, prefix="/video", tags=["Video"])

@@ -12,19 +12,25 @@ import os
 import logging
 from ultralytics import YOLO
 import uuid
+import time  # <--- Added for cooldown
 
 logger = logging.getLogger(__name__)
 
-# ✅ FIX: Use ABSOLUTE path based on project root
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # project root
+# Base Paths
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 FRAME_SAVE_PATH = os.path.join(BASE_DIR, "uploads", "frames")
 os.makedirs(FRAME_SAVE_PATH, exist_ok=True)
 
 # Initialize YOLO model
 model = None
 
+# ✅ GLOBAL COOLDOWN TRACKER
+# Prevents saving 30 images per second. 
+# Format: { user_id: last_violation_timestamp }
+last_alert_time = {}
+ALERT_COOLDOWN = 3.0 
+
 def load_model():
-    """Load YOLO model if not already loaded"""
     global model
     if model is None:
         try:
@@ -41,106 +47,84 @@ def load_model():
     return model
 
 def detect_faces_and_movements(img, user_id, exam_id):
-    """
-    Detect faces and suspicious movements in the image
-    Returns: (processed_image, movement_log)
-    """
     movement_log = []
+    current_time = time.time()
+
+    # ✅ 1. COOLDOWN CHECK
+    # If we just logged a violation for this user < 3 seconds ago, ignore this frame.
+    if user_id in last_alert_time:
+        if current_time - last_alert_time[user_id] < ALERT_COOLDOWN:
+            return img, [] 
 
     try:
         yolo_model = load_model()
         results = yolo_model(img)
+        
+        # We need to determine the state of THIS frame
+        person_count = 0
+        violation_detected = False
+        movement_type = "normal_behavior"
+        confidence = 0.0
 
+        # Scan detections
         for result in results:
             boxes = result.boxes
             if boxes is not None:
-                for box in boxes:
-                    class_id = int(box.cls[0])
-                    class_name = yolo_model.names[class_id]
-                    confidence = float(box.conf[0])
+                # Count people with confidence > 0.5
+                people_boxes = [
+                    b for b in boxes 
+                    if yolo_model.names[int(b.cls[0])] == "person" 
+                    and float(b.conf[0]) > 0.5
+                ]
+                person_count = len(people_boxes)
+                
+                if len(people_boxes) > 0:
+                    confidence = float(people_boxes[0].conf[0])
+                
+                break # Only process the first result batch
 
-                    if class_name == "person" and confidence > 0.5:
-                        person_count = len([
-                            b for b in boxes
-                            if yolo_model.names[int(b.cls[0])] == "person"
-                            and float(b.conf[0]) > 0.5
-                        ])
+        # ✅ 2. DETERMINE IF VIOLATION
+        if person_count == 0:
+            movement_type = "person_absent"
+            violation_detected = True
+        elif person_count > 1:
+            movement_type = "multiple_persons"
+            violation_detected = True
+        else:
+            # person_count == 1 means NORMAL. 
+            # We explicitly DO NOT set violation_detected = True
+            pass 
 
-                        timestamp = datetime.now()
-                        filename = (
-                            f"{user_id}_{exam_id}_"
-                            f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
-                            f"{uuid.uuid4().hex[:6]}.jpg"
-                        )
+        # ✅ 3. SAVE ONLY IF VIOLATION
+        if violation_detected:
+            timestamp = datetime.now()
+            filename = (
+                f"{user_id}_{exam_id}_"
+                f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
+                f"{uuid.uuid4().hex[:6]}.jpg"
+            )
 
-                        frame_path = os.path.join(FRAME_SAVE_PATH, filename)
-                        cv2.imwrite(frame_path, img)
+            frame_path = os.path.join(FRAME_SAVE_PATH, filename)
+            cv2.imwrite(frame_path, img)
 
-                        movement_type = "normal_behavior"
-                        if person_count == 0:
-                            movement_type = "person_absent"
-                        elif person_count > 1:
-                            movement_type = "multiple_persons"
-
-                        movement_log.append({
-                            "user_id": user_id,
-                            "exam_id": exam_id,
-                            "movement_type": movement_type,
-                            "timestamp": timestamp,
-                            "frame_image_path": f"frames/{filename}",  # ✅ keep relative path
-                            "confidence": confidence,
-                            "person_count": person_count
-                        })
-
-                        logger.info(
-                            f"✅ Detected {person_count} person(s) with confidence {confidence:.2f}"
-                        )
-                        break
-
-                if len(movement_log) == 0:
-                    timestamp = datetime.now()
-                    filename = (
-                        f"{user_id}_{exam_id}_"
-                        f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
-                        f"{uuid.uuid4().hex[:6]}.jpg"
-                    )
-
-                    frame_path = os.path.join(FRAME_SAVE_PATH, filename)
-                    cv2.imwrite(frame_path, img)
-
-                    movement_log.append({
-                        "user_id": user_id,
-                        "exam_id": exam_id,
-                        "movement_type": "no_person_detected",
-                        "timestamp": timestamp,
-                        "frame_image_path": f"frames/{filename}",
-                        "confidence": 0.0,
-                        "person_count": 0
-                    })
-
-                    logger.warning("⚠️ No person detected in frame")
+            movement_log.append({
+                "user_id": user_id,
+                "exam_id": exam_id,
+                "movement_type": movement_type,
+                "timestamp": timestamp,
+                "frame_image_path": f"frames/{filename}",
+                "confidence": confidence,
+                "person_count": person_count
+            })
+            
+            # Update cooldown timer
+            last_alert_time[user_id] = current_time
+            logger.info(f"🚨 Violation Logged: {movement_type}")
 
     except Exception as e:
         logger.error(f"❌ Detection error: {e}")
-        timestamp = datetime.now()
-        filename = (
-            f"{user_id}_{exam_id}_"
-            f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
-            f"{uuid.uuid4().hex[:6]}.jpg"
-        )
-
-        frame_path = os.path.join(FRAME_SAVE_PATH, filename)
-        cv2.imwrite(frame_path, img)
-
-        movement_log.append({
-            "user_id": user_id,
-            "exam_id": exam_id,
-            "movement_type": "detection_error",
-            "timestamp": timestamp,
-            "frame_image_path": f"frames/{filename}",
-            "confidence": 0.0,
-            "person_count": 0
-        })
+        # Only log errors if they are critical, or skip to avoid DB clutter
+        pass
 
     return img, movement_log
 
@@ -163,6 +147,7 @@ async def process_frame(
 
         _, movement_log = detect_faces_and_movements(img, user_id, exam_id)
 
+        # Only insert if there is actually a log (meaning a violation occurred)
         for log in movement_log:
             db.execute(text("""
                 INSERT INTO dbo.Movements
@@ -181,30 +166,19 @@ async def process_frame(
         return {
             "status": "success",
             "count": len(movement_log),
-            "movements": movement_log,
-            "message": "Frame processed successfully"
+            "movements": movement_log
         }
 
     except Exception as e:
         db.rollback()
         logger.error(f"❌ Failed to process frame: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process video frame: {str(e)}"
-        )
+        # Return error as JSON to prevent frontend crash
+        return {"status": "error", "message": str(e)}
 
 @router.get("/health")
 async def video_health_check():
     try:
         load_model()
-        return {
-            "status": "healthy",
-            "message": "Video processing service is running",
-            "model_loaded": model is not None
-        }
+        return {"status": "healthy", "model_loaded": model is not None}
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "message": f"Video processing service error: {str(e)}",
-            "model_loaded": False
-        }
+        return {"status": "unhealthy", "error": str(e)}

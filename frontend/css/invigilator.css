@@ -513,3 +513,217 @@ button {
 .flagged-item button:hover {
     background-color: #dc2626;
 }
+
+/* =========================================
+   UNUSUAL DETECTIONS PAGE STYLES
+   ========================================= */
+
+/* Detections Grid */
+.detections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Detection Card (Use this class in your JS generation) */
+.detection-card {
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.detection-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    border-color: #ef4444; /* Red border on hover */
+}
+
+.detection-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-bottom: 1px solid #4a5568;
+    cursor: pointer;
+}
+
+.detection-info {
+    padding: 15px;
+}
+
+.detection-info h4 {
+    color: #fff;
+    font-size: 16px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detection-info p {
+    color: #a0aec0;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.detection-timestamp {
+    font-size: 12px;
+    color: #ef4444; /* Red for alert time */
+    font-weight: 600;
+    margin-top: 10px;
+    display: block;
+}
+
+/* =========================================
+   IMAGE MODAL STYLES (Dark Theme)
+   ========================================= */
+
+.modal {
+    display: none; /* toggled via JS */
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+
+    /* Proper centering */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #1e253f;
+    border-radius: 10px;
+    max-width: 800px;        /* 🔥 Wider for evidence */
+    width: 90%;
+    max-height: 85vh;
+    overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+    border: 1px solid #4a5568;
+    animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.modal-header {
+    padding: 14px 20px;
+    background-color: #5840d8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.close-btn {
+    font-size: 26px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    opacity: 0.85;
+}
+
+.modal-body {
+    padding: 16px;
+    text-align: center;
+}
+
+/* 🔥 MODAL IMAGE SIZE FIX */
+.modal-body img {
+    width: 100%;
+    max-height: 65vh;
+    object-fit: contain;   /* 🔥 no crop, no stretch */
+    border-radius: 6px;
+    border: 1px solid #2d3748;
+}
+
+.caption-text {
+    margin-top: 12px;
+    color: #e2e8f0;
+    font-size: 14px;
+}
+
+
+/* =========================================
+   DETECTIONS GRID (Dashboard Cards)
+   ========================================= */
+
+.detections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Detection card */
+.detections-grid .bg-white {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
+    border-radius: 10px;
+}
+
+/* 🔥 CARD IMAGE SIZE FIX */
+.detections-grid img {
+    width: 100%;
+    height: 150px;        /* smaller & clean */
+    object-fit: cover;   /* no distortion */
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+/* Hover zoom (optional but nice) */
+.detections-grid img:hover {
+    transform: scale(1.03);
+}
+/* ==============================
+   DETECTION CARD DARK THEME FIX
+   ============================== */
+
+.detections-grid .bg-white {
+    background-color: #1e253f;   /* 🔥 dark card */
+    color: #e2e8f0;              /* 🔥 visible text */
+    padding: 16px;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Headings */
+.detections-grid h3 {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Normal text */
+.detections-grid p {
+    color: #cbd5e1;
+    font-size: 14px;
+}
+
+/* Timestamp */
+.detections-grid .text-sm {
+    color: #94a3b8;
+}

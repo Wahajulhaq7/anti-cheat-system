@@ -18,7 +18,7 @@ class ViolationReport(BaseModel):
     exam_id: int
     violation_type: str  # e.g., "tab_switch", "window_blur", "incognito_mode"
     timestamp: str  # ISO format string
-    frame_image_path: str | None = None  # <--- UPDATED: Added this field so the API accepts the image path
+    frame_image_path: str | None = None  # Added this field so the API accepts the image path
 
 
 # ---------------- Report Violation ----------------
@@ -43,7 +43,7 @@ async def report_violation(
                 detail="Students can only report their own violations."
             )
 
-        # Insert into Movements table (UPDATED: Added frame_image_path to insert statement)
+        # Insert into Movements table
         db.execute(
             text("""
                 INSERT INTO dbo.Movements (user_id, exam_id, movement_type, timestamp, frame_image_path)
@@ -54,7 +54,7 @@ async def report_violation(
                 "exam_id": data.exam_id,
                 "movement_type": data.violation_type,
                 "timestamp": data.timestamp,
-                "frame_image_path": data.frame_image_path  # <--- UPDATED: Saving the path to DB
+                "frame_image_path": data.frame_image_path
             }
         )
         db.commit()
@@ -124,7 +124,10 @@ async def get_violations_for_exam(
         # Check if student has taken this exam
         taken = db.execute(
             text("SELECT 1 FROM dbo.StudentAnswers WHERE user_id = :uid AND exam_id = :eid"),
-            {"uid": user_id, "eid": exam_id}
+            {
+                "uid": user_id, 
+                "eid": exam_id
+            }
         ).fetchone()
         if not taken:
             raise HTTPException(status_code=403, detail="You did not take this exam")
@@ -171,7 +174,7 @@ async def get_unusual_detections(
         JOIN dbo.Users u ON m.user_id = u.id
         WHERE m.movement_type IN ('tab_switch', 'window_blur', 'incognito_mode', 'suspicious_movement')
         ORDER BY m.timestamp DESC
-        OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY
+        OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY
     """)
 
     rows = db.execute(query).fetchall()
@@ -210,6 +213,7 @@ async def get_active_students(
 # ---------------- Get YOLO-based Unusual Movements (captured frames) ----------------
 @router.get("/unusual-movements")
 async def get_unusual_movements(
+    limit: int = 1000,  # <--- UPDATED: Increased limit to 1000
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -222,8 +226,9 @@ async def get_unusual_movements(
     if role not in ["admin", "invigilator"]:
         raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
 
-    query = text("""
-        SELECT 
+    # UPDATED QUERY: Removed specific movement_type filter to show ALL images
+    query = text(f"""
+        SELECT TOP {limit}
             m.id,
             m.user_id,
             u.username,
@@ -233,7 +238,7 @@ async def get_unusual_movements(
             m.frame_image_path
         FROM dbo.Movements m
         JOIN dbo.Users u ON m.user_id = u.id
-        WHERE m.movement_type IN ('multiple_persons', 'person_absent', 'no_person_detected', 'detection_error')
+        WHERE m.frame_image_path IS NOT NULL
         ORDER BY m.timestamp DESC
     """)
     

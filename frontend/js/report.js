@@ -1,5 +1,10 @@
 // frontend/js/report.js
 
+// State variables for the modal
+let currentStudentId = null;
+let currentExamId = null;
+let selectedImages = new Set(); // Stores paths of selected images
+
 // Prevent non-admins from accessing
 const role = localStorage.getItem("role");
 if (!role || role !== "admin") {
@@ -14,7 +19,6 @@ window.onload = () => {
     fetchReports();
 };
 
-// Fetch all cheating reports from the backend
 async function fetchReports() {
     const token = localStorage.getItem("token");
     const reportsBody = document.getElementById("reportsBody");
@@ -25,22 +29,15 @@ async function fetchReports() {
     }
 
     try {
-        // Fetch all cheating reports
         const reportsRes = await fetch("http://localhost:8000/log/reports/all", {
             headers: { "Authorization": `Bearer ${token}` }
         });
 
-        if (!reportsRes.ok) {
-            if (reportsRes.status === 403) {
-                throw new Error("Access denied. Admin/Invigilator access required.");
-            }
-            throw new Error("Failed to load reports");
-        }
+        if (!reportsRes.ok) throw new Error("Failed to load reports");
 
         const reports = await reportsRes.json();
-
-        // Render table
         reportsBody.innerHTML = "";
+
         if (reports.length === 0) {
             reportsBody.innerHTML = "<tr><td colspan='7'>No cheating reports found</td></tr>";
             return;
@@ -50,12 +47,10 @@ async function fetchReports() {
             const tr = document.createElement("tr");
             const examDate = new Date(report.exam_date).toLocaleDateString();
             const cheatingScore = report.cheating_score || 0;
-            const suspiciousEvents = report.suspicious_events || 0;
             
-            // Color code based on cheating score
-            let scoreColor = "#28a745"; // Green for low risk
-            if (cheatingScore >= 50) scoreColor = "#ffc107"; // Yellow for medium risk
-            if (cheatingScore >= 75) scoreColor = "#dc3545"; // Red for high risk
+            let scoreColor = "#28a745"; 
+            if (cheatingScore >= 50) scoreColor = "#ffc107"; 
+            if (cheatingScore >= 75) scoreColor = "#dc3545"; 
 
             tr.innerHTML = `
                 <td>${report.student_id}</td>
@@ -65,15 +60,12 @@ async function fetchReports() {
                 <td>${examDate}</td>
                 <td>
                     <span style="color: ${scoreColor}; font-weight: bold;">
-                        ${cheatingScore}% (${suspiciousEvents} events)
+                        ${cheatingScore}%
                     </span>
                 </td>
                 <td>
-                    <button class="btn-report-view" onclick="generateDetailedReport(${report.student_id}, ${report.exam_id})">
-                        <i class="fa-solid fa-eye"></i> View
-                    </button>
-                    <button class="btn-report-pdf" onclick="generatePDFReport(${report.student_id}, ${report.exam_id})">
-                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    <button class="btn-report-view" onclick="openImageSelector(${report.student_id}, ${report.exam_id})">
+                        <i class="fa-solid fa-images"></i> Select & Generate
                     </button>
                 </td>
             `;
@@ -86,164 +78,136 @@ async function fetchReports() {
     }
 }
 
-// Generate detailed report using real backend data
-async function generateDetailedReport(studentId, examId) {
+// --- NEW FUNCTION: Open Modal and Load Images ---
+async function openImageSelector(studentId, examId) {
     const token = localStorage.getItem("token");
+    currentStudentId = studentId;
+    currentExamId = examId;
+    selectedImages.clear(); // Reset selection
+    updateSelectionCount();
 
-    if (!token) {
-        window.location.href = "login.html";
-        return;
-    }
+    const modal = document.getElementById("imageModal");
+    const grid = document.getElementById("imageGrid");
+    
+    modal.style.display = "block";
+    grid.innerHTML = '<p>Loading evidence images...</p>';
 
     try {
+        // Fetch detailed report which contains image paths
         const response = await fetch(`http://localhost:8000/log/report/detailed/${studentId}/${examId}`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
 
-        if (!response.ok) {
-            if (response.status === 403) {
-                throw new Error("Access denied. Admin/Invigilator access required.");
-            }
-            if (response.status === 404) {
-                throw new Error("Report not found.");
-            }
-            throw new Error("Failed to load detailed report");
-        }
+        if (!response.ok) throw new Error("Could not fetch report details");
 
         const report = await response.json();
-        
-        // Format movements for display
-        let movementDetails = "No suspicious activities detected.";
-        if (report.movements && report.movements.length > 0) {
-            movementDetails = report.movements.map(m => 
-                `• ${m.movement_type} at ${new Date(m.timestamp).toLocaleString()}`
-            ).join('\n');
+        grid.innerHTML = ""; // Clear loading text
+
+        if (!report.movements || report.movements.length === 0) {
+            grid.innerHTML = "<p>No suspicious frames captured for this exam.</p>";
+            return;
         }
 
-        // Create detailed report message
-        const reportMessage = `📄 Detailed Cheating Report
+        // Loop through movements and create image cards
+        report.movements.forEach(move => {
+            // Assume backend provides 'image_url' or 'frame_path'
+            // If image_url is missing, use a placeholder or check your backend logic
+            if (move.image_url) {
+                const imgCard = document.createElement("div");
+                imgCard.className = "img-card";
+                imgCard.onclick = () => toggleImageSelection(imgCard, move.image_url);
 
-Student: ${report.student_name}
-Exam: ${report.exam_title}
-Date: ${new Date(report.exam_date).toLocaleDateString()}
+                const img = document.createElement("img");
+                // Ensure the URL is absolute (adjust localhost port if needed)
+                img.src = `http://localhost:8000/${move.image_url}`; 
+                img.alt = move.movement_type;
+                
+                // Optional: Add timestamp tooltip
+                img.title = `${move.movement_type} - ${new Date(move.timestamp).toLocaleTimeString()}`;
 
-📊 SUMMARY:
-• Total Questions Answered: ${report.total_answered}
-• Suspicious Events: ${report.suspicious_events}
-• Cheating Score: ${report.cheating_score}%
-
-🚨 SUSPICIOUS ACTIVITIES:
-${movementDetails}
-
-Risk Level: ${getRiskLevel(report.cheating_score)}`;
-
-        alert(reportMessage);
+                imgCard.appendChild(img);
+                grid.appendChild(imgCard);
+            }
+        });
+        
+        if (grid.children.length === 0) {
+            grid.innerHTML = "<p>No images found in the logs.</p>";
+        }
 
     } catch (err) {
-        console.error("Detailed report error:", err);
-        alert(`❌ ${err.message}`);
+        console.error(err);
+        grid.innerHTML = `<p style="color:red">Error loading images: ${err.message}</p>`;
     }
 }
 
-// Helper function to determine risk level
-function getRiskLevel(score) {
-    if (score === 0) return "✅ No Risk";
-    if (score <= 20) return "🟢 Low Risk";
-    if (score <= 50) return "🟡 Medium Risk";
-    if (score <= 75) return "🟠 High Risk";
-    return "🔴 Very High Risk";
+// --- NEW FUNCTION: Toggle Selection ---
+function toggleImageSelection(cardElement, imagePath) {
+    if (selectedImages.has(imagePath)) {
+        selectedImages.delete(imagePath);
+        cardElement.classList.remove("selected");
+    } else {
+        selectedImages.add(imagePath);
+        cardElement.classList.add("selected");
+    }
+    updateSelectionCount();
 }
 
-// Generate PDF report and open in new tab
-async function generatePDFReport(studentId, examId) {
+function updateSelectionCount() {
+    document.getElementById("selectionCount").innerText = `${selectedImages.size} images selected`;
+}
+
+// --- NEW FUNCTION: Generate PDF with Selected Images ---
+async function generateCustomPDF() {
     const token = localStorage.getItem("token");
+    const btn = document.getElementById("btnGenerateWithImages");
+    
+    // Convert Set to Array
+    const imageList = Array.from(selectedImages);
 
-    if (!token) {
-        window.location.href = "login.html";
-        return;
-    }
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+    btn.disabled = true;
 
     try {
-        // Show loading message
-        const button = event.currentTarget; // Changed to currentTarget to get the button element
-        const originalHTML = button.innerHTML;
-        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-        button.disabled = true;
-
-        // Call the PDF generation endpoint
-        const response = await fetch(`http://localhost:8000/log/report/pdf/${studentId}/${examId}`, {
-            headers: { "Authorization": `Bearer ${token}` }
+        // IMPORTANT: We use POST now because we are sending data (image list)
+        const response = await fetch(`http://localhost:8000/log/report/pdf/custom`, {
+            method: "POST",
+            headers: { 
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                student_id: currentStudentId,
+                exam_id: currentExamId,
+                selected_images: imageList
+            })
         });
 
-        if (!response.ok) {
-            if (response.status === 403) {
-                throw new Error("Access denied. Admin/Invigilator access required.");
-            }
-            if (response.status === 404) {
-                throw new Error("Report not found.");
-            }
-            throw new Error("Failed to generate PDF report");
-        }
+        if (!response.ok) throw new Error("Failed to generate PDF");
 
-        // Get the PDF blob
         const pdfBlob = await response.blob();
-        
-        // Create a URL for the blob
         const pdfUrl = URL.createObjectURL(pdfBlob);
-        
-        // Open PDF in new tab
         window.open(pdfUrl, '_blank');
         
-        // Clean up the URL after a short delay
-        setTimeout(() => {
-            URL.revokeObjectURL(pdfUrl);
-        }, 1000);
-
-        // Reset button
-        button.innerHTML = originalHTML;
-        button.disabled = false;
+        // Close modal after success
+        closeImageModal();
 
     } catch (err) {
-        console.error("PDF generation error:", err);
+        console.error("PDF Error:", err);
         alert(`❌ ${err.message}`);
-        
-        // Reset button on error
-        const button = event.currentTarget;
-        button.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
-        button.disabled = false;
+    } finally {
+        btn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Generate Report';
+        btn.disabled = false;
     }
 }
 
-// Keep the old function for backward compatibility
-async function generateReport(studentId, examId) {
-    return generateDetailedReport(studentId, examId);
+function closeImageModal() {
+    document.getElementById("imageModal").style.display = "none";
 }
 
-// Export all student exam data to CSV
-function exportCSV() {
-    const rows = [
-        ["Student ID", "Student Name", "Exam ID", "Exam Title", "Date"]
-    ];
-
-    // Get all rows from table
-    document.querySelectorAll("#reportsBody tr").forEach(tr => {
-        const cells = tr.querySelectorAll("td");
-        if (cells.length > 0) {
-            const row = [];
-            // Only push first 5 columns (skip Actions)
-            for (let i = 0; i < 5; i++) {
-                row.push(cells[i].textContent.trim());
-            }
-            rows.push(row);
-        }
-    });
-
-    const csvContent = rows.map(row => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `student_exam_reports_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
+// Close modal if clicked outside
+window.onclick = function(event) {
+    const modal = document.getElementById("imageModal");
+    if (event.target == modal) {
+        closeImageModal();
+    }
 }
