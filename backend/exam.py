@@ -338,22 +338,42 @@ async def start_exam(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ✅ GET ALL EXAMS (ADMIN VIEW)
+
+# backend/exam.py
+
+# ... (keep your existing imports and other routes) ...
+
+# ✅ REPLACE THE OLD "/admin/list" WITH THIS NEW VERSION
 @router.get("/admin/list")
-async def get_all_exams(
+async def get_all_exams_status(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    # Ensure only admin can access
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
     if role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can view all exams")
 
+    # This query lists ALL Exams for ALL Students and checks if they are done
     query = text("""
-        SELECT e.id, e.title, u.username, e.created_at, e.start_time, e.end_time, e.duration_minutes
+        SELECT 
+            e.id, 
+            e.title, 
+            e.created_at,
+            u.id AS student_id,       -- ✅ Selects Student ID
+            u.username,
+            CASE 
+                -- Checks if student submitted answers
+                WHEN EXISTS (SELECT 1 FROM dbo.StudentAnswers sa WHERE sa.exam_id = e.id AND sa.user_id = u.id) 
+                THEN 'Completed' 
+                ELSE 'Pending' 
+            END AS status
         FROM dbo.Exams e
-        JOIN dbo.Users u ON e.created_by = u.id
-        ORDER BY e.created_at DESC
+        CROSS JOIN dbo.Users u            -- Combines every exam with every student
+        WHERE u.role = 'student'          -- Filters only for students
+        ORDER BY e.created_at DESC, u.username
     """)
+
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
 

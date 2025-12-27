@@ -8,6 +8,11 @@ from backend.database import get_db
 from backend.auth import get_current_user
 from backend.models import Movement  # Assuming you have this ORM model
 from sqlalchemy import text
+from backend.detection import LATEST_FRAME_CACHE  # <--- Added import for live monitoring cache
+import os
+from fastapi import HTTPException
+from sqlalchemy import text
+
 
 router = APIRouter(tags=["Monitor"])
 
@@ -150,6 +155,7 @@ async def get_violations_for_exam(
     rows = db.execute(query, {"exam_id": exam_id}).fetchall()
     return [dict(row._mapping) for row in rows]
 
+
 # ---------------- Get Unusual Detections (for Invigilator Dashboard) ----------------
 @router.get("/unusual-detections")
 async def get_unusual_detections(
@@ -180,6 +186,7 @@ async def get_unusual_detections(
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
 
+
 # ---------------- Get Active Students ----------------
 @router.get("/active-students")
 async def get_active_students(
@@ -209,6 +216,7 @@ async def get_active_students(
 
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
+
 
 # ---------------- Get YOLO-based Unusual Movements (captured frames) ----------------
 @router.get("/unusual-movements")
@@ -244,3 +252,63 @@ async def get_unusual_movements(
     
     rows = db.execute(query).fetchall()
     return [dict(r._mapping) for r in rows]
+
+# ==========================================================
+# ✅ NEW: Endpoint for Live Feed
+# ==========================================================
+@router.get("/latest-frame")
+async def get_latest_frame(user_id: int, exam_id: int):
+    """
+    Retrieve the URL and status of the latest processed frame 
+    for a specific student/exam session from the in-memory cache.
+    """
+    key = (user_id, exam_id)
+    data = LATEST_FRAME_CACHE.get(key)
+
+    if data:
+        return data
+    else:
+        # Return empty response if no frame received yet
+        return {}
+    
+
+    # ✅ NEW DELETE ENDPOINT
+@router.delete("/detection/{detection_id}")
+async def delete_detection(
+    detection_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    # 1. Check Admin Role
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+
+    # 2. Get the record to find the file path
+    query = text("SELECT frame_image_path FROM Movements WHERE id = :id")
+    result = db.execute(query, {"id": detection_id}).fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Detection not found")
+
+    image_path = result.frame_image_path
+
+    # 3. Delete the file from the server (if it exists)
+    if image_path:
+        # Sanitize path separators
+        clean_path = image_path.replace("\\", "/")
+        # Ensure we point to the uploads directory
+        full_path = f"uploads/{clean_path}" if not clean_path.startswith("uploads/") else clean_path
+        
+        if os.path.exists(full_path):
+            try:
+                os.remove(full_path)
+            except Exception as e:
+                print(f"Error deleting file: {e}")
+
+    # 4. Delete the database record
+    del_query = text("DELETE FROM Movements WHERE id = :id")
+    db.execute(del_query, {"id": detection_id})
+    db.commit()
+
+    return {"status": "success", "message": "Detection deleted"}

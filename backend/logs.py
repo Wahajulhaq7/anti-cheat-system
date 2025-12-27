@@ -7,21 +7,39 @@ from datetime import datetime
 from fastapi import Depends, HTTPException, Response
 from backend.auth import get_current_user
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer,
+    Table, TableStyle, Image
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from io import BytesIO
+import os
+
+router = APIRouter(prefix="/log", tags=["Logs"])
 
 
-router = APIRouter(prefix="/log",tags=["Logs"])
-
+# =========================
+# MODELS
+# =========================
 class ScreenLog(BaseModel):
     user_id: int
     exam_id: int
     app_name: str
     tab_title: str
 
+
+class CustomPDFRequest(BaseModel):
+    student_id: int
+    exam_id: int
+    selected_images: list[str]
+
+
+# =========================
+# ROUTES
+# =========================
 @router.post("/screen")
 def log_screen(data: ScreenLog):
     query = text("""
@@ -32,6 +50,7 @@ def log_screen(data: ScreenLog):
         conn.execute(query, data.dict())
         conn.commit()
     return {"status": "logged"}
+
 
 @router.get("/report/{exam_id}")
 def generate_report(exam_id: int):
@@ -72,7 +91,6 @@ def get_student_results(
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # ✅ Only allow the student themselves or an admin/invigilator
     role = current_user.get("role")
     if role == "student" and current_user.get("id") != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -106,7 +124,6 @@ def get_all_cheating_reports(
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # ✅ Only allow admin/invigilator access
     role = current_user.get("role")
     if role not in ["admin", "invigilator"]:
         raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
@@ -119,12 +136,6 @@ def get_all_cheating_reports(
             e.title AS exam_title,
             e.start_time AS exam_date,
             COUNT(m.id) AS suspicious_events,
-            STUFF((
-                SELECT DISTINCT ', ' + m2.movement_type
-                FROM Movements m2 
-                WHERE m2.user_id = u.id AND m2.exam_id = e.id
-                FOR XML PATH('')
-            ), 1, 2, '') AS movement_types,
             MAX(m.timestamp) AS last_suspicious_activity,
             CASE 
                 WHEN COUNT(m.id) = 0 THEN 0
@@ -138,11 +149,10 @@ def get_all_cheating_reports(
         LEFT JOIN Movements m ON m.user_id = u.id AND m.exam_id = e.id
         LEFT JOIN StudentAnswers sa ON sa.user_id = u.id AND sa.exam_id = e.id
         WHERE u.role = 'student' 
-        AND sa.id IS NOT NULL  -- Only include students who actually took the exam
+        AND sa.id IS NOT NULL
         GROUP BY u.id, u.username, e.id, e.title, e.start_time
         ORDER BY e.start_time DESC, cheating_score DESC, u.username
     """)
-    
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
 
@@ -154,12 +164,10 @@ def get_detailed_report(
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # ✅ Only allow admin/invigilator access
     role = current_user.get("role")
     if role not in ["admin", "invigilator"]:
         raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
 
-    # Get basic info
     basic_query = text("""
         SELECT 
             u.username AS student_name,
@@ -174,39 +182,25 @@ def get_detailed_report(
         WHERE u.id = :student_id
         GROUP BY u.username, e.title, e.start_time
     """)
-    
-    basic_info = db.execute(basic_query, {"student_id": student_id, "exam_id": exam_id}).fetchone()
-    
-    # Get detailed movements
+    basic_info = db.execute(
+        basic_query,
+        {"student_id": student_id, "exam_id": exam_id}
+    ).fetchone()
+
     movements_query = text("""
-        SELECT 
-            movement_type,
-            timestamp,
-            frame_image_path
+        SELECT movement_type, timestamp, frame_image_path
         FROM Movements 
         WHERE user_id = :student_id AND exam_id = :exam_id
         ORDER BY timestamp DESC
     """)
-    
-    movements = db.execute(movements_query, {"student_id": student_id, "exam_id": exam_id}).fetchall()
-    
-    if not basic_info:
-        raise HTTPException(status_code=404, detail="Report not found")
-    
-    # Calculate cheating score
+    movements = db.execute(
+        movements_query,
+        {"student_id": student_id, "exam_id": exam_id}
+    ).fetchall()
+
     suspicious_count = basic_info.suspicious_events
-    cheating_score = 0
-    if suspicious_count == 0:
-        cheating_score = 0
-    elif suspicious_count <= 2:
-        cheating_score = 20
-    elif suspicious_count <= 5:
-        cheating_score = 50
-    elif suspicious_count <= 10:
-        cheating_score = 75
-    else:
-        cheating_score = 100
-    
+    cheating_score = 0 if suspicious_count == 0 else 20 if suspicious_count <= 2 else 50 if suspicious_count <= 5 else 75 if suspicious_count <= 10 else 100
+
     return {
         "student_name": basic_info.student_name,
         "exam_title": basic_info.exam_title,
@@ -218,172 +212,215 @@ def get_detailed_report(
     }
 
 
-@router.get("/report/pdf/{student_id}/{exam_id}")
-def generate_pdf_report(
-    student_id: int,
-    exam_id: int,
+# =========================
+# FIXED POST PDF ENDPOINT (WITH FOOTER)
+# =========================
+@router.post("/report/pdf/custom")
+def generate_custom_pdf(
+    data: CustomPDFRequest,
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # ✅ Only allow admin/invigilator access
     role = current_user.get("role")
     if role not in ["admin", "invigilator"]:
         raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
 
-    # Get the detailed report data
-    try:
-        report_data = get_detailed_report(student_id, exam_id, db, current_user)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get report data: {str(e)}")
-
-    # Create PDF
+    # 1. Gather Data
+    report_data = get_detailed_report(data.student_id, data.exam_id, db, current_user)
+    
+    # 2. Setup PDF Document
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
 
-    # Title
+    # --- STYLES ---
     title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
+        'MainTitle', 
+        parent=styles['Heading1'], 
+        alignment=TA_CENTER, 
+        textColor=colors.darkblue,
         fontSize=18,
-        spaceAfter=30,
-        alignment=1,  # Center alignment
-        textColor=colors.darkblue
+        spaceAfter=20
     )
-    story.append(Paragraph("Anti-Cheat System - Detailed Report", title_style))
-    story.append(Spacer(1, 20))
-
-    # Student and Exam Information
-    info_style = ParagraphStyle(
-        'InfoStyle',
-        parent=styles['Normal'],
+    
+    header_style = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading2'],
+        textColor=colors.darkgreen,
         fontSize=12,
+        spaceBefore=15,
         spaceAfter=10
     )
-    
-    exam_date = report_data['exam_date'].strftime('%Y-%m-%d %H:%M:%S') if report_data['exam_date'] else 'N/A'
-    
-    story.append(Paragraph(f"<b>Student:</b> {report_data['student_name']}", info_style))
-    story.append(Paragraph(f"<b>Exam:</b> {report_data['exam_title']}", info_style))
-    story.append(Paragraph(f"<b>Date:</b> {exam_date}", info_style))
-    story.append(Paragraph(f"<b>Report Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
+
+    normal_style = styles['Normal']
+
+    # --- TITLE & METADATA ---
+    story.append(Paragraph("Anti-Cheat System - Detailed Report", title_style))
+    story.append(Spacer(1, 10))
+
+    # Metadata Block
+    meta_text = f"""
+    <b>Student:</b> {report_data['student_name']}<br/>
+    <b>Exam:</b> {report_data['exam_title']}<br/>
+    <b>Date:</b> {report_data['exam_date']}<br/>
+    <b>Report Generated:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    """
+    story.append(Paragraph(meta_text, normal_style))
     story.append(Spacer(1, 20))
 
-    # Summary Section
-    summary_style = ParagraphStyle(
-        'SummaryStyle',
-        parent=styles['Heading2'],
-        fontSize=14,
-        spaceAfter=15,
-        textColor=colors.darkgreen
-    )
-    story.append(Paragraph("📊 SUMMARY", summary_style))
-    
-    # Determine risk level and color
-    cheating_score = report_data['cheating_score']
-    if cheating_score == 0:
-        risk_level = "✅ No Risk"
-        risk_color = colors.green
-    elif cheating_score <= 20:
-        risk_level = "🟢 Low Risk"
-        risk_color = colors.green
-    elif cheating_score <= 50:
-        risk_level = "🟡 Medium Risk"
-        risk_color = colors.orange
-    elif cheating_score <= 75:
-        risk_level = "🟠 High Risk"
-        risk_color = colors.red
-    else:
-        risk_level = "🔴 Very High Risk"
-        risk_color = colors.darkred
 
-    # Summary table
+    # --- SECTION 1: SUMMARY TABLE ---
+    story.append(Paragraph("■ SUMMARY", header_style))
+
+    # Determine Risk Level & Colors
+    score = report_data['cheating_score']
+    if score >= 75:
+        risk_text = "High Risk"
+        risk_color = colors.red
+        risk_bg = colors.mistyrose
+    elif score >= 50:
+        risk_text = "Medium Risk"
+        risk_color = colors.orange
+        risk_bg = colors.lightyellow
+    else:
+        risk_text = "Low Risk"
+        risk_color = colors.green
+        risk_bg = colors.lightgreen
+
     summary_data = [
         ['Metric', 'Value'],
         ['Total Questions Answered', str(report_data['total_answered'])],
         ['Suspicious Events', str(report_data['suspicious_events'])],
-        ['Cheating Score', f"{cheating_score}%"],
-        ['Risk Level', risk_level]
+        ['Cheating Score', f"{score}%"],
+        ['Risk Level', risk_text]
     ]
+
+    summary_table = Table(summary_data, colWidths=[3*inch, 3*inch], hAlign='LEFT')
     
-    summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
-    summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+    summary_style = TableStyle([
+        ('BACKGROUND', (0, 0), (1, 0), colors.gray),      # Header BG
+        ('TEXTCOLOR', (0, 0), (1, 0), colors.white),      # Header Text
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTNAME', (0, 4), (1, 4), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (1, 4), (1, 4), risk_color),
-    ]))
-    story.append(summary_table)
-    story.append(Spacer(1, 30))
-
-    # Suspicious Activities Section
-    activities_style = ParagraphStyle(
-        'ActivitiesStyle',
-        parent=styles['Heading2'],
-        fontSize=14,
-        spaceAfter=15,
-        textColor=colors.darkred
-    )
-    story.append(Paragraph("🚨 SUSPICIOUS ACTIVITIES", activities_style))
-    
-    if report_data['movements'] and len(report_data['movements']) > 0:
-        # Activities table
-        activities_data = [['#', 'Activity Type', 'Timestamp']]
-        for i, movement in enumerate(report_data['movements'], 1):
-            timestamp = movement['timestamp'].strftime('%Y-%m-%d %H:%M:%S') if movement['timestamp'] else 'N/A'
-            activities_data.append([
-                str(i),
-                movement['movement_type'],
-                timestamp
-            ])
         
-        activities_table = Table(activities_data, colWidths=[0.5*inch, 2.5*inch, 2*inch])
-        activities_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.darkred),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightgrey),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ]))
-        story.append(activities_table)
-    else:
-        story.append(Paragraph("No suspicious activities detected during this exam.", info_style))
+        # Risk Level Coloring (Last Row, Last Col)
+        ('TEXTCOLOR', (1, 4), (1, 4), risk_color),
+        ('FONTNAME', (1, 4), (1, 4), 'Helvetica-Bold'),
+    ])
+    summary_table.setStyle(summary_style)
+    story.append(summary_table)
+    story.append(Spacer(1, 20))
 
-    story.append(Spacer(1, 30))
 
-    # Footer
-    footer_style = ParagraphStyle(
-        'FooterStyle',
-        parent=styles['Normal'],
-        fontSize=10,
-        alignment=1,  # Center alignment
-        textColor=colors.grey
-    )
-    story.append(Paragraph("Generated by Anti-Cheat Detection System", footer_style))
-    story.append(Paragraph("This report is confidential and should be handled according to institutional policies.", footer_style))
+    # --- SECTION 2: SUSPICIOUS ACTIVITIES TABLE ---
+    story.append(Paragraph("■ SUSPICIOUS ACTIVITIES", header_style))
 
-    # Build PDF
-    doc.build(story)
+    # Table Header
+    activities_data = [['#', 'Activity Type', 'Timestamp']]
+    
+    # Table Rows (Limit to first 10 for layout cleanliness, or show all)
+    idx = 1
+    for move in report_data['movements']:
+        # Format Timestamp
+        ts = move['timestamp']
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, datetime) else str(ts)
+        
+        activities_data.append([str(idx), move['movement_type'], ts_str])
+        idx += 1
+
+    # If no activities
+    if len(activities_data) == 1:
+        activities_data.append(['-', 'No suspicious activity recorded', '-'])
+
+    act_table = Table(activities_data, colWidths=[0.5*inch, 3*inch, 2.5*inch], hAlign='LEFT')
+    
+    act_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkred),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ])
+    act_table.setStyle(act_style)
+    story.append(act_table)
+    story.append(Spacer(1, 20))
+
+
+    # --- SECTION 3: EVIDENCE IMAGES ---
+    story.append(Paragraph("■ CAPTURED EVIDENCE FRAMES", header_style))
+    story.append(Spacer(1, 10))
+
+    img_query = text("""
+        SELECT frame_image_path
+        FROM Movements
+        WHERE user_id = :uid AND exam_id = :eid
+        AND frame_image_path IS NOT NULL
+        ORDER BY timestamp DESC
+    """)
+    
+    rows = db.execute(img_query, {
+        "uid": data.student_id,
+        "eid": data.exam_id
+    }).fetchall()
+
+    image_found = False
+    selected_set = set(img.replace("\\", "/") for img in data.selected_images)
+
+    for row in rows:
+        path = row.frame_image_path.replace("\\", "/")
+
+        if path not in selected_set:
+            continue
+
+        if path.startswith("uploads/"):
+            real_path = path
+        else:
+            real_path = os.path.join("uploads", path)
+
+        if os.path.exists(real_path):
+            image_found = True
+            # Add image with a thin border or spacing
+            story.append(Image(real_path, width=4*inch, height=3*inch))
+            story.append(Spacer(1, 15))
+
+    if not image_found:
+        story.append(Paragraph("No evidence images selected.", normal_style))
+
+
+    # --- DEFINE FOOTER FUNCTION ---
+    def add_footer(canvas, doc):
+        canvas.saveState()
+        
+        # Footer Text Settings
+        canvas.setFont('Helvetica', 9)
+        canvas.setFillColor(colors.grey)
+        
+        w, h = A4
+        
+        # Draw Center Aligned Footer Text
+        canvas.drawCentredString(w / 2, 0.75 * inch, "Generated by Anti-Cheat Detection System")
+        canvas.drawCentredString(w / 2, 0.60 * inch, "This report is confidential and should be handled according to institutional policies.")
+        
+        # Draw Page Number
+        page_num = canvas.getPageNumber()
+        text = f"Page {page_num}"
+        canvas.setFont('Helvetica-Bold', 10)
+        canvas.setFillColor(colors.black)
+        canvas.drawCentredString(w / 2, 0.40 * inch, text)
+        
+        canvas.restoreState()
+
+
+    # Build PDF with Footer
+    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
     buffer.seek(0)
-    
-    # Return PDF as response
-    filename = f"cheating_report_{report_data['student_name']}_{exam_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    
+
     return Response(
         content=buffer.getvalue(),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename={filename}"}
+        headers={"Content-Disposition": "inline; filename=cheating_evidence_report.pdf"}
     )

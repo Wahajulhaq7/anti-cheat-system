@@ -3,21 +3,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const userId = params.get("user_id") || "";
   const username = params.get("username") || "";
 
+  // 🔐 Get token
+  const token = localStorage.getItem("token");
+
   // Display info
   document.getElementById("studentName").textContent = `Student: ${username || userId || "Unknown"}`;
   document.getElementById("examTitle").textContent = `Exam: ${params.get("exam_title") || params.get("exam_id") || "Unknown"}`;
 
-  // Back button — always go to invigilator.html in SAME folder
+  // Back button
   document.getElementById("backBtn").addEventListener("click", () => {
-    // If file is in same folder:
     window.location.href = `invigilator.html?user_id=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}`;
-    // If invigilator.html is in parent folder, change to:
-    // window.location.href = `../invigilator.html?user_id=...`
   });
 
-  // --------------------------
-  // Live monitoring logic...
-  // --------------------------
   const API_BASE = "http://localhost:8000";
   const liveImage = document.getElementById("liveImage");
   const detectionList = document.getElementById("detectionList");
@@ -28,9 +25,20 @@ document.addEventListener("DOMContentLoaded", () => {
   feedInfo.style.color = "#555";
   liveImage.insertAdjacentElement("afterend", feedInfo);
 
+  // --------------------------
+  // ✅ LIVE FRAME (FIXED)
+  // --------------------------
   async function fetchLiveImage() {
     try {
-      const res = await fetch(`${API_BASE}/monitor/latest-frame?user_id=${encodeURIComponent(userId)}&exam_id=${encodeURIComponent(params.get("exam_id") || "")}`);
+      const res = await fetch(
+        `${API_BASE}/monitor/latest-frame?user_id=${encodeURIComponent(userId)}&exam_id=${encodeURIComponent(params.get("exam_id") || "")}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      );
+
       if (!res.ok) throw new Error("Failed to fetch latest frame");
       const data = await res.json();
 
@@ -47,13 +55,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // --------------------------
+  // ✅ UNUSUAL DETECTIONS (FIXED)
+  // --------------------------
   async function fetchDetections() {
     try {
-      const res = await fetch(`${API_BASE}/monitor/unusual-detections`);
+      const res = await fetch(
+        `${API_BASE}/monitor/unusual-detections`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      );
+
       if (!res.ok) throw new Error("Failed to fetch detections");
 
       const detections = await res.json();
-      const filtered = detections.filter(d => String(d.user_id) === userId && String(d.exam_id) === params.get("exam_id"));
+      const filtered = detections.filter(
+        d => String(d.user_id) === userId && String(d.exam_id) === params.get("exam_id")
+      );
 
       detectionList.innerHTML = "";
       if (filtered.length === 0) {
@@ -70,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Initial and polling
+  // Initial + polling
   fetchLiveImage();
   fetchDetections();
   setInterval(fetchLiveImage, 5000);

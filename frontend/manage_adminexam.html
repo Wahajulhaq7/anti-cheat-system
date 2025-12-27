@@ -18,12 +18,12 @@
 
     <main>
         <section class="exam-list">
-            <h2><i class="fa-solid fa-list"></i> Exams by Username</h2>
+            <h2><i class="fa-solid fa-list"></i> Exams by Student</h2>
             <table>
                 <thead>
                     <tr>
                         <th>Exam Title</th>
-                        <th>Username</th>
+                        <th>Student ID & Name</th>
                         <th>Date Created</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -39,7 +39,7 @@
     <script>
         function logout() {
             if(confirm("Are you sure you want to log out?")){
-                localStorage.removeItem("formObj"); // Assuming formObj or token
+                localStorage.removeItem("formObj"); 
                 localStorage.clear();
                 window.location.href = "login.html";
             }

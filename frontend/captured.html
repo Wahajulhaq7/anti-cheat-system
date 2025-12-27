@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
   <style>
-    /* Specific style for detection images that isn't in global css */
+    /* Specific style for table thumbnail images */
     img.detection-img {
       width: 100px;
       height: 60px;
@@ -15,6 +15,84 @@
       border-radius: 5px;
       border: 1px solid #4a5568;
     }
+
+    /* --- BUTTON STYLES --- */
+    .btn-delete {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.2s;
+    }
+    .btn-delete:hover { background-color: #dc2626; }
+
+    .btn-view {
+      background-color: #3b82f6; /* Blue */
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+      margin-right: 8px; /* Space between buttons */
+      transition: background 0.2s;
+    }
+    .btn-view:hover { background-color: #2563eb; }
+
+    /* --- MODAL STYLES (Centered & Medium Size) --- */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.85); /* Dark overlay */
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #1a202c;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        max-width: 600px; /* Medium Size */
+        width: 90%;
+        text-align: center;
+        animation: zoomIn 0.2s ease-out;
+    }
+
+    @keyframes zoomIn {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-content img {
+        width: 100%;
+        height: auto;
+        border-radius: 4px;
+        display: block;
+    }
+
+    .close-btn {
+        position: absolute;
+        top: -35px;
+        right: 0;
+        color: #fff;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .close-btn:hover { color: #ef4444; }
+
   </style>
 </head>
 <body>
@@ -52,6 +130,7 @@
             <th>Exam ID</th>
             <th>Type</th>
             <th>Timestamp</th>
+            <th>Action</th> 
           </tr>
         </thead>
         <tbody>
@@ -59,6 +138,13 @@
       </table>
     </div>
 
+  </div>
+
+  <div id="imageModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <img id="modalImage" src="" alt="Evidence Frame">
+    </div>
   </div>
 
   <script src="js/captured.js"></script>

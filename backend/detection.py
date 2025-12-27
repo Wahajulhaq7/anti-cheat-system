@@ -30,6 +30,11 @@ model = None
 last_alert_time = {}
 ALERT_COOLDOWN = 3.0 
 
+# ✅ GLOBAL LIVE MONITORING CACHE
+# Stores the latest frame info for every active user.
+# Format: { (user_id, exam_id): { ...data... } }
+LATEST_FRAME_CACHE = {}
+
 def load_model():
     global model
     if model is None:
@@ -95,9 +100,32 @@ def detect_faces_and_movements(img, user_id, exam_id):
             # We explicitly DO NOT set violation_detected = True
             pass 
 
-        # ✅ 3. SAVE ONLY IF VIOLATION
+        # =========================================================
+        # ✅ LIVE MONITORING: ALWAYS SAVE LATEST FRAME
+        # This runs for EVERY processed frame, regardless of violation
+        # =========================================================
+        try:
+            # Save as a fixed filename (overwrite) to save disk space
+            latest_filename = f"latest_{user_id}_{exam_id}.jpg"
+            latest_path = os.path.join(FRAME_SAVE_PATH, latest_filename)
+            cv2.imwrite(latest_path, img)
+
+            # Update the global cache for the monitor endpoint
+            LATEST_FRAME_CACHE[(int(user_id), int(exam_id))] = {
+                "user_id": user_id,
+                "exam_id": exam_id,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "movement_type": movement_type,
+                "frame_image_path": f"uploads/frames/{latest_filename}"
+            }
+        except Exception as e:
+            logger.error(f"❌ Failed to save latest live frame: {e}")
+        # =========================================================
+
+        # ✅ 3. SAVE TO DB ONLY IF VIOLATION
         if violation_detected:
             timestamp = datetime.now()
+            # Generate unique filename for the violation record
             filename = (
                 f"{user_id}_{exam_id}_"
                 f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"

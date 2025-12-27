@@ -50,7 +50,7 @@ async function fetchExams() {
     }
 }
 
-// ✅ Render exams in table
+// ✅ Render exams in table (UPDATED)
 function renderExamTable(exams) {
     const examTableBody = document.getElementById("examTableBody");
     examTableBody.innerHTML = ""; // Clear existing
@@ -62,23 +62,49 @@ function renderExamTable(exams) {
 
     exams.forEach(exam => {
         const row = document.createElement("tr");
+
+        // Determine Status Color
+        let statusColor = "#ffc107"; // Default Orange (Pending)
+        let statusText = exam.status || "Pending";
+        let actionContent = `<span style="color: gray; font-size: 0.9em;">Wait for submission</span>`;
+
+        if (statusText === "Completed") {
+            statusColor = "#28a745"; // Green
+            // ✅ Only show View button if Completed
+            // Passes both exam ID and student ID to the function
+            actionContent = `
+                <button class="btn-view" onclick="viewExam(${exam.id}, ${exam.student_id})">
+                    View
+                </button>
+            `;
+        }
+
+        // ✅ Updated Row HTML
         row.innerHTML = `
             <td>${exam.title || "Untitled"}</td>
-            <td>${exam.username || "Unknown"}</td>
+            <td>
+                <strong>ID: ${exam.student_id}</strong><br>
+                <span style="font-size: 0.9em;">${exam.username || "Unknown"}</span>
+            </td>
             <td>${exam.created_at ? new Date(exam.created_at).toLocaleDateString() : "N/A"}</td>
-            <td><span class="status ${exam.status?.toLowerCase() || 'n-a'}">${exam.status || "N/A"}</span></td>
+            <td>
+                <span style="color: ${statusColor}; font-weight: bold;">
+                    ${statusText}
+                </span>
+            </td>
             <td class="actions">
-                <button class="btn-view" onclick="viewExam(${exam.id})">View</button>
+                ${actionContent}
             </td>
         `;
         examTableBody.appendChild(row);
     });
 }
 
-// ✅ View Exam
-function viewExam(examId) {
-    if (!examId) return;
-    window.location.href = `exam_detail.html?id=${examId}`;
+// ✅ View Exam (UPDATED LINK)
+function viewExam(examId, studentId) {
+    if (!examId || !studentId) return;
+    // Redirects to admin_submittedexam.html with parameters
+    window.location.href = `admin_submittedexam.html?exam_id=${examId}&student_id=${studentId}`;
 }
 
 // ✅ Logout
