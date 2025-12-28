@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Received Reports - Invigilator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css"> </head>
+<body>
+
+    <nav class="navbar">
+        <div class="brand"><i class="fa-solid fa-shield-halved"></i> Anti-Cheat System</div>
+        <div class="nav-links">
+            <a href="invigilator.html"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        <div class="dashboard-banner">
+            <h2><i class="fa-solid fa-inbox"></i> Received Reports</h2>
+            <p>Reports sent by Admin regarding suspicious student activities.</p>
+        </div>
+
+        <div class="table-container">
+            <table id="reportsTable">
+                <thead>
+                    <tr>
+                        <th>Date Received</th>
+                        <th>Student Info</th>
+                        <th>Exam</th>
+                        <th>Sent By</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="reportsBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // --- JS LOGIC INLINE FOR SIMPLICITY ---
+        const token = localStorage.getItem("token");
+        if (!token) window.location.href = "login.html";
+
+        async function loadReports() {
+            const tbody = document.getElementById("reportsBody");
+            tbody.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
+
+            try {
+                const res = await fetch("http://localhost:8000/log/reports/received", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (!res.ok) throw new Error("Failed to fetch reports");
+
+                const reports = await res.json();
+                tbody.innerHTML = "";
+
+                if (reports.length === 0) {
+                    tbody.innerHTML = "<tr><td colspan='5'>No reports received yet.</td></tr>";
+                    return;
+                }
+
+                reports.forEach(r => {
+                    const date = new Date(r.sent_at).toLocaleString();
+                    // Assuming you set up static file serving for 'uploaded_reports' folder
+                    const downloadLink = `http://localhost:8000/uploaded_reports/${r.report_file_path}`;
+
+                    const row = `
+                        <tr>
+                            <td>${date}</td>
+                            <td>
+                                <strong>${r.student_name}</strong><br>
+                                <span style="font-size:0.85em; color:gray;">ID: ${r.student_id}</span>
+                            </td>
+                            <td>
+                                <strong>${r.exam_title}</strong><br>
+                                <span style="font-size:0.85em; color:gray;">ID: ${r.exam_id}</span>
+                            </td>
+                            <td>Admin: ${r.sender_name}</td>
+                            <td>
+                                <a href="${downloadLink}" target="_blank" class="btn-create" style="text-decoration:none; font-size:0.9em;">
+                                    <i class="fa-solid fa-download"></i> Download PDF
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = `<tr><td colspan='5' style="color:red;">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        loadReports();
+    </script>
+</body>
+</html>

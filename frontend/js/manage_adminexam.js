@@ -71,7 +71,6 @@ function renderExamTable(exams) {
         if (statusText === "Completed") {
             statusColor = "#28a745"; // Green
             // ✅ Only show View button if Completed
-            // Passes both exam ID and student ID to the function
             actionContent = `
                 <button class="btn-view" onclick="viewExam(${exam.id}, ${exam.student_id})">
                     View
@@ -100,11 +99,13 @@ function renderExamTable(exams) {
     });
 }
 
-// ✅ View Exam (UPDATED LINK)
+// ✅ View Exam (FIXED PARAMETERS HERE)
 function viewExam(examId, studentId) {
     if (!examId || !studentId) return;
-    // Redirects to admin_submittedexam.html with parameters
-    window.location.href = `admin_submittedexam.html?exam_id=${examId}&student_id=${studentId}`;
+    
+    // ⚠️ CRITICAL FIX: Changed 'exam_id' -> 'examId' and 'student_id' -> 'studentId'
+    // This matches what view_submission.html is looking for.
+    window.location.href = `view_submission.html?examId=${examId}&studentId=${studentId}`;
 }
 
 // ✅ Logout

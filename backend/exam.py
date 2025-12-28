@@ -413,6 +413,11 @@ async def get_student_answers(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    # Check if user is Admin or Invigilator
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    
+    if role not in ["invigilator", "admin"]:
+        raise HTTPException(status_code=403, detail="Access denied. Only staff can view answers.")
 
     query = text("""
         SELECT sa.question_id, sa.selected_option, sa.submitted_at

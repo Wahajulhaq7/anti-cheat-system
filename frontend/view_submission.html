@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Submission View</title>
+    <style>
+    /* --- Dark Theme CSS --- */
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #111827;
+        color: #e5e7eb;
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        padding: 40px;
+    }
+
+    .container { width: 100%; max-width: 800px; }
+
+    /* Header */
+    .header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 20px; border-bottom: 2px solid #374151; padding-bottom: 15px;
+    }
+    h1 { margin: 0; font-size: 24px; color: #fff; }
+    .sub-header { color: #9ca3af; font-size: 14px; margin-top: 5px;}
+
+    .score-badge {
+        background-color: #374151; padding: 10px 20px; border-radius: 8px;
+        font-size: 18px; font-weight: bold; color: #10b981;
+    }
+
+    /* Cards */
+    .question-card {
+        background-color: #1f2937; border: 1px solid #374151;
+        border-radius: 8px; padding: 20px; margin-bottom: 20px;
+    }
+    .q-text { font-size: 18px; margin-bottom: 15px; font-weight: 500; }
+
+    /* --- OPTION STYLES --- */
+    .option {
+        display: block; padding: 12px 15px; margin-bottom: 8px;
+        border-radius: 6px; border: 1px solid #374151;
+        background-color: #111827; color: #d1d5db;
+    }
+
+    /* SCENARIO 1: Student picked it AND it is correct */
+    .option.perfect-match {
+        background-color: rgba(16, 185, 129, 0.2); /* Green Tint */
+        border-color: #10b981;
+        color: #10b981;
+    }
+
+    /* SCENARIO 2: Student picked it but it is WRONG */
+    .option.wrong-choice {
+        background-color: rgba(239, 68, 68, 0.2); /* Red Tint */
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+
+    /* SCENARIO 3: Student missed it, but it WAS the correct answer */
+    .option.correct-missed {
+        border-color: #10b981;
+        border-style: dashed; /* Dashed border to indicate "Look here" */
+        color: #10b981;
+    }
+
+    .btn-back {
+        background-color: #6366f1; color: white; border: none; padding: 10px 20px;
+        border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin-bottom: 20px;
+    }
+    .loading { text-align: center; color: #9ca3af; margin-top: 50px; }
+</style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="javascript:history.back()" class="btn-back">← Back to Dashboard</a>
+        
+        <div id="loading" class="loading">Loading submission data...</div>
+
+        <div id="content" style="display: none;">
+            <div class="header">
+                <div>
+                    <h1 id="examTitle">Exam Title</h1>
+                    <div class="sub-header" id="studentInfo">Student ID: ...</div>
+                </div>
+                <div class="score-badge" id="scoreDisplay">Score: -/-</div>
+            </div>
+
+            <div id="questionsContainer">
+                </div>
+        </div>
+    </div>
+
+    <script>
+    // --- CONFIGURATION ---
+    const API_BASE_URL = "http://localhost:8000/exam"; 
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get('examId');
+    const studentId = urlParams.get('studentId');
+    const token = localStorage.getItem("token"); 
+
+    async function fetchSubmissionData() {
+        if (!examId || !studentId) {
+            alert("Missing examId or studentId in URL");
+            return;
+        }
+
+        try {
+            const questionsRes = await fetch(`${API_BASE_URL}/${examId}/questions`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const answersRes = await fetch(`${API_BASE_URL}/${examId}/answers?user_id=${studentId}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (!questionsRes.ok || !answersRes.ok) throw new Error("Failed to fetch data");
+
+            const questions = await questionsRes.json();
+            const answers = await answersRes.json();
+
+            renderExam(questions, answers);
+
+        } catch (error) {
+            console.error(error);
+            document.getElementById('loading').innerText = "Error loading data.";
+        }
+    }
+
+    function renderExam(questions, answers) {
+        const container = document.getElementById('questionsContainer');
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+
+        // Map answers by Question ID
+        const answerMap = {};
+        answers.forEach(ans => {
+            answerMap[String(ans.question_id)] = ans.selected_option;
+        });
+
+        let correctCount = 0;
+
+        questions.forEach((q, index) => {
+            // Get raw data
+            let rawStudentSelection = answerMap[String(q.id)];
+            
+            // Normalize strings for comparison (remove spaces, lowercase)
+            const cleanStr = (str) => String(str || "").trim().toLowerCase();
+            const normStudentSelection = cleanStr(rawStudentSelection);
+            const normCorrectOption = cleanStr(q.correct_option);
+
+            // Define Options
+            const optionsList = [
+                { key: 'option_a', label: 'A', value: q.option_a },
+                { key: 'option_b', label: 'B', value: q.option_b },
+                { key: 'option_c', label: 'C', value: q.option_c },
+                { key: 'option_d', label: 'D', value: q.option_d }
+            ];
+
+            // --- CALCULATE SCORE ---
+            // Student gets point if their selection matches the correct option logic
+            const gotPoint = optionsList.some(opt => {
+                const val = cleanStr(opt.value);
+                const key = cleanStr(opt.key);
+                const lbl = cleanStr(opt.label);
+
+                // Is this option correct?
+                const isCorrect = (val === normCorrectOption || key === normCorrectOption || lbl === normCorrectOption);
+                // Did student pick it?
+                const isSelected = (val === normStudentSelection || key === normStudentSelection || lbl === normStudentSelection);
+                
+                return isCorrect && isSelected;
+            });
+
+            if (gotPoint) correctCount++;
+
+            // --- BUILD HTML ---
+            const card = document.createElement('div');
+            card.className = 'question-card';
+
+            let optionsHtml = '';
+            
+            optionsList.forEach(opt => {
+                let className = 'option';
+                let iconText = '';
+                
+                const val = cleanStr(opt.value);
+                const key = cleanStr(opt.key);
+                const lbl = cleanStr(opt.label);
+
+                // 1. Is this what the student clicked?
+                const isSelectedByStudent = (val === normStudentSelection || key === normStudentSelection || lbl === normStudentSelection);
+                
+                // 2. Is this the correct answer (Invigilator's choice)?
+                const isActuallyCorrect = (val === normCorrectOption || key === normCorrectOption || lbl === normCorrectOption);
+
+                // --- LOGIC FOR UI ---
+                if (isSelectedByStudent && isActuallyCorrect) {
+                    // CASE 1: Perfect Match
+                    className += ' perfect-match';
+                    iconText = ' ✅ Correct Answer (Student Selected)';
+                } 
+                else if (isSelectedByStudent && !isActuallyCorrect) {
+                    // CASE 2: Student Picked Wrong
+                    className += ' wrong-choice';
+                    iconText = ' ❌ Student Selected';
+                } 
+                else if (!isSelectedByStudent && isActuallyCorrect) {
+                    // CASE 3: Student Missed the Correct Answer
+                    className += ' correct-missed';
+                    iconText = ' 👈 Correct Answer';
+                }
+
+                // Only render if option has text
+                if (opt.value) { 
+                    optionsHtml += `<div class="${className}">
+                        <strong>${opt.label}:</strong> ${opt.value} 
+                        <span style="float:right; font-weight:bold;">${iconText}</span>
+                    </div>`;
+                }
+            });
+
+            card.innerHTML = `
+                <div class="q-text">Q${index + 1}. ${q.question}</div>
+                ${optionsHtml}
+            `;
+            container.appendChild(card);
+        });
+
+        // Update Header
+        document.getElementById('examTitle').innerText = `Exam #${examId} Results`; 
+        document.getElementById('studentInfo').innerText = `Student ID: ${studentId}`;
+        document.getElementById('scoreDisplay').innerText = `Score: ${correctCount} / ${questions.length}`;
+    }
+
+    fetchSubmissionData();
+</script>
+</body>
+</html>

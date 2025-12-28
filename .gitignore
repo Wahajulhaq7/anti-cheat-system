@@ -135,6 +135,7 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
+uploaded_reports/
 uploads/frames/
 uploads/*.jpg
 uploads/*.png

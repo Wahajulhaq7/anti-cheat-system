@@ -6,20 +6,76 @@
   <title>Reports - Admin</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* Styling for the Upload Box States */
+    .upload-box {
+      border: 2px dashed #4a5568; 
+      padding: 30px; 
+      text-align: center; 
+      border-radius: 8px; 
+      background: #f7fafc; 
+      position: relative; 
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-box:hover { 
+      border-color: #2b6cb0; 
+      background: #ebf8ff; 
+    }
+
+    /* File Display State */
+    .file-display {
+      display: none; /* Hidden by default */
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      padding: 10px;
+      background: #e6fffa;
+      border: 1px solid #38b2ac;
+      border-radius: 6px;
+      color: #2c7a7b;
+      font-weight: bold;
+    }
+
+    .remove-file-btn {
+      background: none;
+      border: none;
+      color: #e53e3e;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 5px;
+    }
+    .remove-file-btn:hover { color: #c53030; }
+    
+    /* ✅ FIXED: FORCE PURE BLACK AND EXTRA BOLD */
+    #fileLabelText {
+        color: #000000 !important;
+    }
+    #fileLabelText i {
+        color: #000000 !important; /* Pure Black Icon */
+        font-size: 32px !important;
+        margin-bottom: 8px;
+        font-weight: 900 !important; /* Thickest icon weight */
+    }
+    #fileLabelText span {
+        color: #000000 !important; /* Pure Black Text */
+        font-weight: 900 !important; /* Extra Bold Text */
+        font-size: 1.2rem;
+        text-transform: uppercase; /* Makes it even more visible */
+        letter-spacing: 0.5px;
+    }
+  </style>
 </head>
 <body>
 
   <nav class="navbar">
-    <div class="brand">
-      <i class="fa-solid fa-shield-halved"></i> Anti-Cheat Exam System
-    </div>
+    <div class="brand"><i class="fa-solid fa-shield-halved"></i> Anti-Cheat Exam System</div>
     <div class="nav-links">
       <a href="dashboard.html"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
     </div>
   </nav>
 
   <div class="main-content">
-    
     <div class="dashboard-banner" style="display: flex; justify-content: space-between; align-items: center;">
       <div>
         <h2><i class="fa-solid fa-file-invoice-dollar"></i> Cheating Reports</h2>
@@ -31,49 +87,125 @@
     </div>
 
     <div class="table-container">
-      <div class="table-header">
-        <h3><i class="fa-solid fa-list"></i> Student Reports</h3>
-      </div>
-
+      <div class="table-header"><h3><i class="fa-solid fa-list"></i> Student Reports</h3></div>
       <table id="reportsTable">
         <thead>
           <tr>
-            <th>Student ID</th>
-            <th>Student Name</th>
-            <th>Exam ID</th>
-            <th>Exam Title</th>
-            <th>Date</th>
-            <th>Risk Score</th>
-            <th>Actions</th>
+            <th>Student ID</th><th>Student Name</th><th>Exam ID</th><th>Exam Title</th>
+            <th>Date</th><th>Risk Score</th><th>Actions</th>
           </tr>
         </thead>
-        <tbody id="reportsBody">
-          </tbody>
+        <tbody id="reportsBody"></tbody>
       </table>
     </div>
-
   </div>
+
   <div id="imageModal" class="modal" style="display: none;">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2><i class="fa-solid fa-images"></i> Select Evidence Images</h2>
-      <span class="close-btn" onclick="closeImageModal()">&times;</span>
-    </div>
-    
-    <p class="modal-instruction">Click on the images you want to include in the PDF report.</p>
-    
-    <div id="imageGrid" class="image-grid">
-       </div>
-
-    <div class="modal-footer">
-      <span id="selectionCount">0 images selected</span>
-      <button id="btnGenerateWithImages" class="btn-create" onclick="generateCustomPDF()">
-        <i class="fa-solid fa-file-pdf"></i> Generate Report
-      </button>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-images"></i> Select Evidence Images</h2>
+        <span class="close-btn" onclick="closeImageModal()">&times;</span>
+      </div>
+      <p class="modal-instruction">Click on the images you want to include in the PDF report.</p>
+      <div id="imageGrid" class="image-grid"></div>
+      <div class="modal-footer">
+        <span id="selectionCount">0 images selected</span>
+        <div style="display: flex; gap: 10px;">
+             <button id="btnOpenSend" class="btn-create" style="background-color: #2b6cb0;" onclick="openSendReportModal()">
+                <i class="fa-solid fa-paper-plane"></i> Send to Invigilator
+             </button>
+             <button id="btnGenerateWithImages" class="btn-create" onclick="generateCustomPDF()">
+                <i class="fa-solid fa-file-pdf"></i> Generate Report
+             </button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<script src="js/report.js"></script>
+  <div id="sendReportModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-share-from-square"></i> Send Report</h2>
+        <span class="close-btn" onclick="closeSendModal()">&times;</span>
+      </div>
+
+      <div style="padding: 20px;">
+        <label style="font-weight: bold; display: block; margin-bottom: 8px;">Select Invigilator:</label>
+        <select id="invigilatorSelect" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e0; margin-bottom: 20px;">
+            <option value="">-- Loading Invigilators... --</option>
+        </select>
+
+        <label style="font-weight: bold; display: block; margin-bottom: 8px;">Upload Report (PDF):</label>
+        
+        <div class="upload-box" onclick="document.getElementById('reportFileInput').click()">
+            <input type="file" id="reportFileInput" accept=".pdf" style="display: none;" onchange="handleFileSelect()">
+            
+            <div id="fileLabelText">
+                <i class="fa-solid fa-cloud-arrow-up"></i><br>
+                <span>Click to upload PDF</span>
+            </div>
+
+            <div id="uploadLoader" style="display: none;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: #5a67d8;"></i>
+                <p style="margin-top: 5px; font-size: 0.9rem; color: #5a67d8;">Uploading...</p>
+            </div>
+
+            <div id="fileDisplay" class="file-display">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span id="selectedFileName">filename.pdf</span>
+                <button class="remove-file-btn" onclick="removeFile(event)" title="Remove file">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-create" style="background-color: #718096;" onclick="closeSendModal()">Cancel</button>
+        <button id="btnSendConfirm" class="btn-create" onclick="sendReportToInvigilator()">
+            <i class="fa-solid fa-paper-plane"></i> Send Now
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/report.js"></script>
+  <script>
+    function handleFileSelect() {
+        const fileInput = document.getElementById("reportFileInput");
+        const fileLabel = document.getElementById("fileLabelText");
+        const loader = document.getElementById("uploadLoader");
+        const fileDisplay = document.getElementById("fileDisplay");
+        const nameSpan = document.getElementById("selectedFileName");
+
+        if (fileInput.files.length > 0) {
+            // Show Loader
+            fileLabel.style.display = "none";
+            fileDisplay.style.display = "none";
+            loader.style.display = "block";
+
+            // Simulate upload delay (e.g., 1 second)
+            setTimeout(() => {
+                loader.style.display = "none";
+                // Show File Name
+                nameSpan.innerText = fileInput.files[0].name;
+                fileDisplay.style.display = "flex"; // Show flex container
+            }, 800);
+        }
+    }
+
+    function removeFile(event) {
+        event.stopPropagation(); // Prevent triggering the parent upload box click
+        
+        const fileInput = document.getElementById("reportFileInput");
+        const fileLabel = document.getElementById("fileLabelText");
+        const fileDisplay = document.getElementById("fileDisplay");
+
+        // Clear input and reset UI
+        fileInput.value = ""; 
+        fileDisplay.style.display = "none";
+        fileLabel.style.display = "block";
+    }
+  </script>
 </body>
 </html>

@@ -135,3 +135,12 @@ class Movement(Base):
     movement_type = Column(String(50), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
     frame_image_path = Column(String(255), nullable=True)
+
+# --- ADD THIS MODEL (If using SQLAlchemy models.py, put it there) ---
+class SentReport(Base):
+    __tablename__ = "SentReports"
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("Users.id"))
+    invigilator_id = Column(Integer, ForeignKey("Users.id"))
+    report_file_path = Column(String)
+    sent_at = Column(DateTime, default=datetime.utcnow)

@@ -149,7 +149,7 @@ function injectDynamicStyles() {
         }
 
         /* --- GENERATE BUTTON --- */
-        #btnGenerateWithImages {
+        .btn-create {
             background-color: #5a67d8; /* Indigo/Purple match */
             color: white;
             border: none;
@@ -163,8 +163,12 @@ function injectDynamicStyles() {
             gap: 8px;
             transition: background 0.2s;
         }
-        #btnGenerateWithImages:hover { background-color: #4c51bf; }
-        #btnGenerateWithImages:disabled { background-color: #a0aec0; cursor: not-allowed; }
+        .btn-create:hover { background-color: #4c51bf; }
+        .btn-create:disabled { background-color: #a0aec0; cursor: not-allowed; }
+
+        /* ✅ NEW STYLES FOR SEND MODAL */
+        #invigilatorSelect { background: #fff; color: #333; }
+        #reportFileInput { cursor: pointer; }
     `;
     document.head.appendChild(style);
 }
@@ -376,7 +380,8 @@ async function generateCustomPDF() {
         const pdfUrl = URL.createObjectURL(pdfBlob);
         window.open(pdfUrl, "_blank");
 
-        closeImageModal();
+        // Keep modal open or close depending on preference
+        // closeImageModal(); 
 
     } catch (err) {
         console.error("PDF Error:", err);
@@ -391,10 +396,143 @@ function closeImageModal() {
     document.getElementById("imageModal").style.display = "none";
 }
 
-// Close modal if clicked outside
-window.onclick = function(event) {
-    const modal = document.getElementById("imageModal");
-    if (event.target === modal) {
-        closeImageModal();
+// frontend/js/report.js
+
+// ... (Keep injectDynamicStyles function) ...
+
+// ... (Keep existing fetchReports, openImageSelector, toggleImageSelection, generateCustomPDF functions) ...
+
+// =========================================================
+// ✅ NEW FUNCTIONALITY: SEND REPORT TO INVIGILATOR
+// =========================================================
+
+// 1. Open the "Send Report" Modal
+async function openSendReportModal() {
+    document.getElementById("imageModal").style.display = "none";
+    
+    const sendModal = document.getElementById("sendReportModal");
+    sendModal.style.display = "flex";
+
+    // Reset File Input UI
+    const fileLabel = document.getElementById("fileLabelText");
+    if(fileLabel) fileLabel.innerText = "Choose file (PDF)";
+    document.getElementById("reportFileInput").value = ""; 
+    document.getElementById("uploadLoader").style.display = "none";
+
+    // Load Invigilators
+    await fetchInvigilators();
+}
+
+// 2. Fetch Invigilators
+async function fetchInvigilators() {
+    const select = document.getElementById("invigilatorSelect");
+    const token = localStorage.getItem("token");
+
+    try {
+        const res = await fetch("http://localhost:8000/log/users/invigilators", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch invigilators");
+
+        const invigilators = await res.json();
+        
+        select.innerHTML = '<option value="">-- Select Invigilator --</option>';
+        invigilators.forEach(inv => {
+            select.innerHTML += `<option value="${inv.id}">ID: ${inv.id} - ${inv.username}</option>`;
+        });
+
+    } catch (err) {
+        console.error(err);
+        select.innerHTML = '<option value="">Error loading list</option>';
     }
+}
+
+// 3. ✅ NEW: Handle File Selection (Loader & Name Display)
+function handleFileSelect() {
+    const fileInput = document.getElementById("reportFileInput");
+    const fileLabel = document.getElementById("fileLabelText");
+    const loader = document.getElementById("uploadLoader");
+
+    if (fileInput.files.length > 0) {
+        const fileName = fileInput.files[0].name;
+        
+        // Show Loader briefly for effect
+        if(fileLabel) fileLabel.style.display = "none";
+        if(loader) loader.style.display = "block";
+
+        setTimeout(() => {
+            if(loader) loader.style.display = "none";
+            if(fileLabel) {
+                fileLabel.style.display = "block";
+                fileLabel.innerHTML = `<i class="fa-solid fa-file-pdf" style="color: #e53e3e;"></i> ${fileName}`;
+                fileLabel.style.fontWeight = "bold";
+                fileLabel.style.color = "#2d3748";
+            }
+        }, 800); // 0.8s Simulated Loading
+    }
+}
+
+// 4. Send the Report
+async function sendReportToInvigilator() {
+    const invigilatorId = document.getElementById("invigilatorSelect").value;
+    const fileInput = document.getElementById("reportFileInput");
+    const token = localStorage.getItem("token");
+    const btn = document.getElementById("btnSendConfirm");
+
+    if (!invigilatorId) {
+        alert("Please select an invigilator.");
+        return;
+    }
+    if (fileInput.files.length === 0) {
+        alert("Please upload the PDF report file.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("invigilator_id", invigilatorId);
+    
+    // ✅ CRITICAL FIX: Send Student and Exam IDs so they show up on the other side
+    formData.append("student_id", currentStudentId); 
+    formData.append("exam_id", currentExamId);
+    
+    formData.append("file", fileInput.files[0]);
+
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch("http://localhost:8000/log/reports/send", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` },
+            body: formData
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.detail || "Failed to send report");
+
+        alert("✅ Report sent successfully!");
+        closeSendModal();
+
+    } catch (err) {
+        console.error(err);
+        alert(`❌ Error: ${err.message}`);
+    } finally {
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Now';
+        btn.disabled = false;
+    }
+}
+
+function closeSendModal() {
+    document.getElementById("sendReportModal").style.display = "none";
+    document.getElementById("imageModal").style.display = "flex";
+}
+
+// Close modal logic...
+window.onclick = function(event) {
+    const imgModal = document.getElementById("imageModal");
+    const sendModal = document.getElementById("sendReportModal");
+    if (event.target === imgModal) closeImageModal();
+    if (event.target === sendModal) closeSendModal();
 };

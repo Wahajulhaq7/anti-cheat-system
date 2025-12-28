@@ -20,20 +20,6 @@ window.onload = () => {
   loadUsers();
 };
 
-// Helper: Create role dropdown
-function createRoleSelect(currentRole) {
-  const roles = ['student', 'admin', 'invigilator'];
-  return `
-    <select data-field="role">
-      ${roles.map(r => `
-        <option value="${r}" ${currentRole.toLowerCase() === r ? 'selected' : ''}>
-          ${r.charAt(0).toUpperCase() + r.slice(1)}
-        </option>
-      `).join('')}
-    </select>
-  `;
-}
-
 // Toggle password visibility
 function togglePassword(fieldId) {
   const field = document.getElementById(fieldId);
@@ -86,10 +72,13 @@ async function loadUsers() {
 
     users.forEach(user => {
       const tr = document.createElement("tr");
+      // ✅ FIXED: Show role as text, not dropdown
+      const displayRole = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+      
       tr.innerHTML = `
         <td>${user.id}</td>
         <td>${user.username}</td>
-        <td>${createRoleSelect(user.role)}</td>
+        <td class="role-cell" data-role="${user.role}">${displayRole}</td>
         <td>
           <button class="btn-edit" onclick="openEditModal(${user.id}, this)">Edit</button>
           <button class="btn-delete" onclick="deleteUser(${user.id})">Delete</button>
@@ -155,7 +144,9 @@ function openEditModal(userId, button) {
   currentUserID = userId;
   const row = button.closest("tr");
   originalUsername = row.cells[1].textContent;
-  originalRole = row.querySelector("select").value;
+  
+  // ✅ FIXED: Get raw role from data attribute instead of parsing dropdown
+  originalRole = row.querySelector(".role-cell").getAttribute("data-role");
 
   document.getElementById("modalUsername").value = originalUsername;
   document.getElementById("modalRole").value = originalRole;
@@ -248,43 +239,5 @@ async function deleteUser(userId) {
   } catch (err) {
     console.error("Delete error:", err);
     alert("❌ Network error");
-  }
-}
-
-// Create exam
-async function createExam() {
-  const title = document.getElementById("examTitle").value.trim();
-  const user_id = localStorage.getItem("user_id");
-
-  if (!title) {
-    alert("Exam title is required");
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch("http://localhost:8000/exam/create", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ title, user_id: parseInt(user_id) })
-    });
-
-    if (res.status === 401) {
-      alert("Session expired. Please log in again.");
-      logout();
-      return;
-    }
-
-    if (res.ok) {
-      alert("✅ Exam created!");
-      document.getElementById("examTitle").value = "";
-    } else {
-      alert("❌ Failed to create exam");
-    }
-  } catch (err) {
-    alert("❌ Server connection failed");
   }
 }

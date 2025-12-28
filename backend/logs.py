@@ -1,10 +1,10 @@
 # backend/logs.py
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File, Form
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 from backend.database import engine, get_db
 from pydantic import BaseModel
 from datetime import datetime
-from fastapi import Depends, HTTPException, Response
 from backend.auth import get_current_user
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import (
@@ -17,6 +17,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from io import BytesIO
 import os
+import shutil
 
 router = APIRouter(prefix="/log", tags=["Logs"])
 
@@ -88,7 +89,7 @@ def generate_report(exam_id: int):
 @router.get("/report/user/{user_id}")
 def get_student_results(
     user_id: int,
-    db=Depends(get_db),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     role = current_user.get("role")
@@ -121,7 +122,7 @@ def get_student_results(
 
 @router.get("/reports/all")
 def get_all_cheating_reports(
-    db=Depends(get_db),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     role = current_user.get("role")
@@ -161,7 +162,7 @@ def get_all_cheating_reports(
 def get_detailed_report(
     student_id: int,
     exam_id: int,
-    db=Depends(get_db),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     role = current_user.get("role")
@@ -198,6 +199,9 @@ def get_detailed_report(
         {"student_id": student_id, "exam_id": exam_id}
     ).fetchall()
 
+    if not basic_info:
+        raise HTTPException(status_code=404, detail="Report data not found")
+
     suspicious_count = basic_info.suspicious_events
     cheating_score = 0 if suspicious_count == 0 else 20 if suspicious_count <= 2 else 50 if suspicious_count <= 5 else 75 if suspicious_count <= 10 else 100
 
@@ -218,7 +222,7 @@ def get_detailed_report(
 @router.post("/report/pdf/custom")
 def generate_custom_pdf(
     data: CustomPDFRequest,
-    db=Depends(get_db),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     role = current_user.get("role")
@@ -424,3 +428,99 @@ def generate_custom_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": "inline; filename=cheating_evidence_report.pdf"}
     )
+
+
+# ---------------------------------------------------------
+# ✅ API: GET ALL INVIGILATORS (For Admin Dropdown)
+# ---------------------------------------------------------
+@router.get("/users/invigilators")
+async def get_all_invigilators(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+        
+    # Assuming 'role' column exists in Users table
+    query = text("SELECT id, username FROM dbo.Users WHERE role = 'invigilator'")
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ---------------------------------------------------------
+# ✅ API: SEND REPORT TO INVIGILATOR
+# ---------------------------------------------------------
+@router.post("/reports/send")
+async def send_report_to_invigilator(
+    invigilator_id: int = Form(...),
+    student_id: int = Form(...), 
+    exam_id: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+
+    # 1. Save the file
+    upload_dir = "uploaded_reports"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate a unique filename using timestamp
+    timestamp_str = datetime.now().strftime('%Y%m%d%H%M%S')
+    filename = f"{timestamp_str}_{file.filename}"
+    file_path = os.path.join(upload_dir, filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # 2. Save DB Record
+    # ⚠️ FIXED: Added student_id and exam_id to INSERT statement
+    query = text("""
+        INSERT INTO dbo.SentReports (admin_id, invigilator_id, student_id, exam_id, report_file_path, sent_at)
+        VALUES (:aid, :iid, :sid, :eid, :path, GETDATE())
+    """)
+    db.execute(query, {
+        "aid": current_user["id"],
+        "iid": invigilator_id,
+        "sid": student_id,
+        "eid": exam_id,
+        "path": filename # Saving only filename for easier URL construction
+    })
+    db.commit()
+
+    return {"status": "success", "message": "Report sent to invigilator successfully"}
+
+# ---------------------------------------------------------
+# ✅ NEW: GET RECEIVED REPORTS (For Invigilator)
+# ---------------------------------------------------------
+@router.get("/reports/received")
+async def get_my_received_reports(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    # Only Invigilators
+    if current_user.get("role") != "invigilator":
+        raise HTTPException(status_code=403, detail="Invigilators only")
+
+    user_id = current_user["id"]
+
+    query = text("""
+        SELECT 
+            sr.id, 
+            sr.report_file_path, 
+            sr.sent_at,
+            sr.student_id,
+            u.username AS student_name,
+            sr.exam_id,
+            e.title AS exam_title,
+            a.username AS sender_name
+        FROM dbo.SentReports sr
+        JOIN dbo.Users u ON sr.student_id = u.id
+        JOIN dbo.Exams e ON sr.exam_id = e.id
+        JOIN dbo.Users a ON sr.admin_id = a.id
+        WHERE sr.invigilator_id = :uid
+        ORDER BY sr.sent_at DESC
+    """)
+    rows = db.execute(query, {"uid": user_id}).fetchall()
+    return [dict(row._mapping) for row in rows]
