@@ -1,5 +1,6 @@
 const API_BASE = "http://localhost:8000";
-let detectionInterval = null; // Track webcam detection loop
+let detectionInterval = null; 
+let isViolationProcessing = false; // 🔒 Lock to prevent double submission
 
 window.addEventListener("DOMContentLoaded", async () => {
   const token = localStorage.getItem("token");
@@ -17,27 +18,31 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  document.getElementById("username").textContent = `👋 ${username}`;
+  const userEl = document.getElementById("username");
+  if(userEl) userEl.innerHTML = `<i class="fa-solid fa-user-graduate"></i> ${username}`;
 
-  // --- Tab switch / window blur detection ---
+  // --- 🔒 VIOLATION DETECTION EVENTS ---
+  
+  // 1. Tab Switch / Minimize
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       handleViolation("tab_switch", exam_id, token);
     }
   });
 
+  // 2. Window Blur (Clicking outside browser)
   window.addEventListener("blur", () => {
     handleViolation("window_blur", exam_id, token);
   });
 
-  // --- Incognito mode detection ---
+  // 3. Incognito Detection
   detectIncognitoMode(isIncognito => {
     if (isIncognito) {
       handleViolation("incognito_mode", exam_id, token);
     }
   });
 
-  // Tell backend the exam is starting
+  // Tell backend exam started
   try {
     await fetch(`${API_BASE}/exam/${exam_id}/start`, {
       method: "POST",
@@ -53,6 +58,25 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadQuestions(exam_id);
   startWebcamDetection(user_id, exam_id, token);
 });
+
+// --- 🚀 CORE: Handle Violation ---
+async function handleViolation(type, exam_id, token) {
+  // If already processing a violation, stop here to prevent loops
+  if (isViolationProcessing) return;
+  isViolationProcessing = true; 
+
+  console.warn(`🚨 VIOLATION DETECTED: ${type}`);
+
+  // 1. Report the violation to backend (fire and forget)
+  reportViolation(type);
+
+  // 2. Submit Exam Automatically (Silent Mode)
+  // We pass 'true' to indicate auto-submit.
+  // The redirect to student.html happens inside submitAnswers.
+  await submitAnswers(exam_id, token, true);
+  
+  // ❌ REMOVED ALERT: No alert here to ensure immediate redirect when tab is hidden.
+}
 
 function logout() {
   if (detectionInterval) {
@@ -102,7 +126,6 @@ async function loadQuestions(exam_id) {
       </div>
     `).join("");
 
-    // Add Submit button
     list.insertAdjacentHTML("beforeend", `
       <div style="margin-top:20px;">
         <button id="submit-answers" class="btn-submit">Submit Answers</button>
@@ -110,7 +133,7 @@ async function loadQuestions(exam_id) {
     `);
 
     document.getElementById("submit-answers").addEventListener("click", () => {
-      submitAnswers(exam_id, localStorage.getItem("token"));
+      submitAnswers(exam_id, localStorage.getItem("token"), false);
     });
 
   } catch (err) {
@@ -119,64 +142,8 @@ async function loadQuestions(exam_id) {
   }
 }
 
-function startWebcamDetection(user_id, exam_id, token) {
-  const video = document.getElementById("webcam");
-  const statusEl = document.querySelector(".status");
-
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-      video.srcObject = stream;
-
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-
-      detectionInterval = setInterval(() => {
-        if (video.videoWidth === 0 || video.videoHeight === 0) return;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob(async blob => {
-          const formData = new FormData();
-          formData.append("user_id", user_id);
-          formData.append("exam_id", exam_id);
-          formData.append("frame", blob, "frame.jpg");
-
-          try {
-            const res = await fetch(`${API_BASE}/video/`, {
-              method: "POST",
-              headers: { "Authorization": `Bearer ${token}` },
-              body: formData
-            });
-
-            if (!res.ok) {
-              throw new Error(`Server responded with ${res.status}`);
-            }
-
-            const result = await res.json();
-            statusEl.textContent = result.count > 0 
-              ? "Suspicious activity detected" 
-              : "All clear";
-            statusEl.className = result.count > 0 
-              ? "status alert" 
-              : "status success";
-          } catch (err) {
-            console.error("Detection error:", err);
-            statusEl.textContent = "Detection failed";
-            statusEl.className = "status alert";
-          }
-        }, "image/jpeg");
-      }, 5000);
-    })
-    .catch(err => {
-      console.error("Webcam access denied:", err);
-      statusEl.textContent = "Webcam not available";
-      statusEl.className = "status alert";
-    });
-}
-
-async function submitAnswers(exam_id, token) {
+// --- 📤 SUBMIT ANSWERS FUNCTION ---
+async function submitAnswers(exam_id, token, isAutoSubmit = false) {
   const answers = [];
   document.querySelectorAll(".question-block").forEach((block, index) => {
     const selected = block.querySelector("input[type='radio']:checked");
@@ -186,12 +153,13 @@ async function submitAnswers(exam_id, token) {
     });
   });
 
-  if (answers.length === 0) {
-    alert("No questions loaded or found. Cannot submit empty exam.");
+  // If manual submit, require validation. Auto-submit skips this.
+  if (!isAutoSubmit && answers.length === 0) {
+    alert("No questions loaded. Cannot submit.");
     return false;
   }
 
-  console.log("📤 Submitting answers:", answers);
+  console.log("📤 Submitting answers...");
 
   try {
     const res = await fetch(`${API_BASE}/exam/${exam_id}/submit`, {
@@ -203,89 +171,45 @@ async function submitAnswers(exam_id, token) {
       body: JSON.stringify({ answers })
     });
 
-    console.log("📡 HTTP Status:", res.status);
     const responseText = await res.text();
-    console.log("📡 Raw Response:", responseText);
 
     if (!res.ok) {
-      console.error(`❌ HTTP Error ${res.status}:`, responseText);
-      if (responseText.includes("already submitted")) {
-        alert("⚠️ You have already submitted this exam.");
-        const btn = document.getElementById("submit-answers");
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "Already Submitted";
-        }
-        return false;
-      } else {
-        alert(`❌ Submission failed: ${responseText}`);
-        return false;
+      console.error(`❌ Submit Error:`, responseText);
+      // Only show alerts if user is manually submitting
+      if (!isAutoSubmit) {
+         if (responseText.includes("already submitted")) {
+            // Already submitted, so just leave
+            window.location.replace("student.html");
+            return; 
+         }
+      } 
+      
+      // If auto-submit failed (e.g. already submitted), force redirect anyway
+      if (isAutoSubmit) {
+          window.location.replace("student.html");
       }
+      return false;
     }
 
-    // Parse response
-    let result;
-    try {
-      result = JSON.parse(responseText);
-      console.log("✅ Parsed result:", result);
-    } catch (e) {
-      console.error("💥 JSON Parse Error:", e);
-      result = { status: "success", message: "Submission recorded" }; // Fallback
-    }
-
-    // Show success message
-    try {
+    // --- Success Handling ---
+    if (!isAutoSubmit) {
       alert("🎉 Your exam has been submitted successfully!");
-    } catch (e) {
-      console.warn("⚠️ Alert blocked or failed:", e);
-      // Still proceed
     }
 
-    // Disable submit button
-    try {
-      const submitBtn = document.getElementById("submit-answers");
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Submitted ✓";
-      }
-    } catch (e) {
-      console.error("💥 Button update failed:", e);
-    }
-
-    // REDIRECT — Try replace first, then fallback to href
-    console.log("🚀 Preparing to redirect to student.html...");
-    setTimeout(() => {
-      try {
-        console.log("→ Attempting window.location.replace...");
-        window.location.replace("student.html");
-      } catch (e) {
-        console.error("💥 Replace failed, trying href:", e);
-        try {
-          window.location.href = "student.html";
-        } catch (ex) {
-          console.error("💥 All redirects failed:", ex);
-          alert("Redirect failed. Please click OK and manually go to results page.");
-        }
-      }
-    }, 1500);
-
+    // REDIRECT TO RESULTS
+    window.location.replace("student.html");
     return true;
 
   } catch (err) {
-    console.error("💥💥💥 CRITICAL ERROR in submitAnswers:", err);
-    alert("⚠️ Unexpected error. Please refresh the page.");
+    console.error("Critical Submit Error:", err);
+    if (!isAutoSubmit) alert("⚠️ Network error. Please try again.");
+    // Force redirect on error if auto-submit to exit the loop
+    if (isAutoSubmit) window.location.replace("student.html");
     return false;
   }
 }
-// --- Helper: Handle violation with auto-submit + logout ---
-async function handleViolation(type, exam_id, token) {
-  console.warn(`Violation detected: ${type}`);
-  await reportViolation(type);
-  const submitted = await submitAnswers(exam_id, token);
-  logout(); // Always logout after attempt
-}
 
-// --- Helper: Report violations to backend ---
+// --- Helper: Report violations ---
 async function reportViolation(type) {
   try {
     await fetch(`${API_BASE}/monitor/violation`, {
@@ -305,12 +229,50 @@ async function reportViolation(type) {
     console.error("Failed to report violation:", err);
   }
 }
-// --- Helper: Detect incognito/private mode ---
+
+function startWebcamDetection(user_id, exam_id, token) {
+  const video = document.getElementById("webcam");
+  
+  if (!video) return;
+
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      video.srcObject = stream;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      detectionInterval = setInterval(() => {
+        if (video.videoWidth === 0) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        canvas.toBlob(async blob => {
+          const formData = new FormData();
+          formData.append("user_id", user_id);
+          formData.append("exam_id", exam_id);
+          formData.append("frame", blob, "frame.jpg");
+
+          try {
+            await fetch(`${API_BASE}/video/`, {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${token}` },
+              body: formData
+            });
+            // Removed status logic as requested
+          } catch (err) { console.error(err); }
+        }, "image/jpeg");
+      }, 5000);
+    })
+    .catch(err => {
+      console.error("Webcam denied:", err);
+    });
+}
+
+// --- Helper: Detect incognito ---
 function detectIncognitoMode(callback) {
   const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
-  if (!fs) {
-    callback(false);
-    return;
-  }
+  if (!fs) { callback(false); return; }
   fs(window.TEMPORARY, 100, () => callback(false), () => callback(true));
 }

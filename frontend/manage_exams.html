@@ -6,21 +6,197 @@
   <title>Manage Exams</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/invigilator.css" />
+  <style>
+    /* --- MODAL STYLES (Consistent) --- */
+    .modal { 
+        display: none; 
+        position: fixed; 
+        z-index: 2000; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        height: 100%; 
+        background-color: rgba(0,0,0,0.6); 
+        justify-content: center; 
+        align-items: center; 
+        backdrop-filter: blur(3px); 
+    }
+    
+    .modal-content { 
+        background-color: #fefefe; 
+        margin: auto; 
+        padding: 0; 
+        border-radius: 8px; 
+        width: 400px; 
+        text-align: center; 
+        position: relative; 
+        overflow: hidden; 
+        display: flex; 
+        flex-direction: column; 
+    }
+    
+    /* Header Styles */
+    .card-header-modal { 
+        background: #5840d8; 
+        color: white; 
+        padding: 20px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        width: 100%; 
+    }
+
+    .card-header-modal.delete-header {
+        background: #dc3545; /* Red for Delete */
+    }
+
+    /* Success Header Green */
+    .modal-header-success {
+        color: #28a745;
+        font-size: 50px;
+        margin-bottom: 10px;
+        padding-top: 20px;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .card-header-modal h3 { 
+        margin: 0; 
+        font-size: 18px; 
+        font-weight: 600; 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+    }
+    
+    .modal-body { 
+        padding: 25px; 
+        width: 100%; 
+        background: #fff; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+    }
+    
+    .modal-body p { 
+        color: #4a5568; 
+        font-size: 16px; 
+        margin-bottom: 25px; 
+        text-align: center; 
+        width: 100%; 
+    }
+    
+    .modal-actions { 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        gap: 15px; 
+        width: 100%; 
+        margin-top: 10px; 
+    }
+    
+    /* Buttons - Centering Fix */
+    .btn-confirm-logout { 
+        background-color: #5840d8; 
+        color: white; 
+        border: none; 
+        padding: 0; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        width: 130px; 
+        height: 40px; 
+        font-weight: 600; 
+        font-size: 14px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        transition: background 0.2s; 
+    }
+    .btn-confirm-logout:hover { background-color: #4c35de; }
+
+    .btn-confirm-delete { 
+        background-color: #dc3545; 
+        color: white; 
+        border: none; 
+        padding: 0; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        width: 130px; 
+        height: 40px; 
+        font-weight: 600; 
+        font-size: 14px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        transition: background 0.2s; 
+    }
+    .btn-confirm-delete:hover { background-color: #c82333; }
+
+    .btn-cancel { 
+        background-color: #6c757d; 
+        color: white; 
+        border: none; 
+        padding: 0; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        width: 130px; 
+        height: 40px; 
+        font-weight: 600; 
+        font-size: 14px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        transition: background 0.2s; 
+    }
+    .btn-cancel:hover { background-color: #5a6268; }
+
+    .btn-ok {
+        background-color: #28a745; 
+        color: white;
+        border: none;
+        padding: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        width: 130px;
+        height: 40px;
+        font-weight: 600;
+        font-size: 14px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: background 0.2s;
+    }
+    .btn-ok:hover { background-color: #218838; }
+  </style>
 </head>
 <body>
+
 <nav class="nav-bar">
-  <h1><i class="fa-solid fa-clipboard-list"></i> Manage Exams</h1>
+  <h1><i class="fa-solid fa-user-secret"></i> Invigilator Dashboard</h1>
   <div class="nav-buttons">
-    <button onclick="window.location.href='invigilator.html'" class="btn-nav">
-      <i class="fa-solid fa-house"></i> Dashboard
+    <button onclick="location.href='invigilator.html'" class="btn-nav">
+      <i class="fa-solid fa-gauge"></i> Dashboard
     </button>
-    <button onclick="window.location.href='students.html'" class="btn-nav">
+    <button onclick="location.href='students.html'" class="btn-nav">
       <i class="fa-solid fa-users"></i> Students
+    </button>
+    <button onclick="location.href='manage_exams.html'" class="btn-nav active" style="color: #fff; background-color: rgba(255, 255, 255, 0.1);">
+      <i class="fa-solid fa-file-lines"></i> Exams Created
+    </button>
+    <button onclick="location.href='submitted_exams.html'" class="btn-nav">
+      <i class="fa-solid fa-clipboard-check"></i> Submitted Exams
+    </button>
+    <button onclick="location.href='invigilator_reports.html'" class="btn-nav">
+      <i class="fa-solid fa-inbox"></i> Received Reports
+    </button>
+    <button onclick="location.href='unusual.html'" class="btn-nav">
+      <i class="fa-solid fa-triangle-exclamation"></i> Unusual Detections
     </button>
     
     <div class="user-menu">
       <span id="username"><i class="fa-solid fa-user"></i> Invigilator</span>
-      <button onclick="logout()" class="btn-logout">
+      <button onclick="openLogoutModal()" class="btn-logout">
         <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>
     </div>
@@ -36,8 +212,54 @@
   </section>
 </div>
 
+<div id="logoutModal" class="modal">
+  <div class="modal-content">
+    <div class="card-header-modal">
+      <h3><i class="fa-solid fa-right-from-bracket"></i> Confirm Logout</h3>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to log out?</p>
+      <div class="modal-actions">
+        <button onclick="confirmLogout()" class="btn-confirm-logout">Yes, Logout</button>
+        <button onclick="closeLogoutModal()" class="btn-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="deleteModal" class="modal">
+  <div class="modal-content">
+    <div class="card-header-modal delete-header">
+      <h3><i class="fa-solid fa-trash-can"></i> Confirm Delete</h3>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to delete this exam? This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button onclick="confirmDelete()" class="btn-confirm-delete">Delete</button>
+        <button onclick="closeDeleteModal()" class="btn-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="successModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header-success">
+        <i class="fa-solid fa-circle-check"></i>
+    </div>
+    <div class="modal-body">
+        <h3 style="margin: 0 0 10px; color: #333;">Success!</h3>
+        <p id="successMessage" style="color:#666; margin-bottom: 20px;">Exam deleted successfully.</p>
+        <div class="modal-actions">
+            <button onclick="closeSuccessModal()" class="btn-ok">OK</button>
+        </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_BASE = "http://localhost:8000"; 
+let examToDeleteId = null; // Store ID for deletion
 
 window.onload = async () => {
   const token = localStorage.getItem('token');
@@ -51,14 +273,46 @@ window.onload = async () => {
 
   // Update username text (keep the icon)
   const userSpan = document.getElementById('username');
-  userSpan.innerHTML = `<i class="fa-solid fa-user"></i> ${username}`;
+  if(userSpan) userSpan.innerHTML = `<i class="fa-solid fa-user"></i> ${username}`;
   
   await loadMyExams();
 };
 
-function logout() {
-  localStorage.clear();
-  window.location.href = 'login.html';
+// --- Logout Modal Logic ---
+function openLogoutModal() { document.getElementById('logoutModal').style.display = 'flex'; }
+function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
+function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
+
+// --- Delete Modal Logic ---
+function openDeleteModal(examId) {
+    examToDeleteId = examId;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    examToDeleteId = null;
+}
+
+// --- ✅ Success Modal Logic ---
+function openSuccessModal(message) {
+    if(message) document.getElementById('successMessage').textContent = message;
+    document.getElementById('successModal').style.display = 'flex';
+}
+
+function closeSuccessModal() {
+    document.getElementById('successModal').style.display = 'none';
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+  const logoutModal = document.getElementById('logoutModal');
+  const deleteModal = document.getElementById('deleteModal');
+  const successModal = document.getElementById('successModal');
+  
+  if (event.target == logoutModal) closeLogoutModal();
+  if (event.target == deleteModal) closeDeleteModal();
+  if (event.target == successModal) closeSuccessModal();
 }
 
 async function loadMyExams() {
@@ -90,7 +344,7 @@ async function loadMyExams() {
           <p class="meta"><i class="fa-regular fa-clock"></i> Created: ${createdAt}</p>
         </div>
         <div class="exam-actions">
-           <button onclick="deleteExam(${exam.id})" class="btn-delete">
+           <button onclick="openDeleteModal(${exam.id})" class="btn-delete">
             <i class="fa-solid fa-trash"></i> Delete
           </button>
         </div>
@@ -104,12 +358,12 @@ async function loadMyExams() {
   }
 }
 
-async function deleteExam(examId) {
-  if (!confirm("Are you sure you want to delete this exam? This action cannot be undone.")) return;
+async function confirmDelete() {
+  if (!examToDeleteId) return;
 
   try {
     const token = localStorage.getItem('token');
-    const res = await fetch(`${API_BASE}/exam/${examId}`, {
+    const res = await fetch(`${API_BASE}/exam/${examToDeleteId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -119,12 +373,17 @@ async function deleteExam(examId) {
       throw new Error(errData.detail || 'Failed to delete exam');
     }
 
-    alert("✅ Exam deleted successfully");
-    await loadMyExams();
+    closeDeleteModal(); // Close delete modal first
+    
+    // ✅ Trigger Success Modal
+    openSuccessModal("Exam deleted successfully.");
+    
+    await loadMyExams(); // Refresh list
 
   } catch (err) {
     console.error(err);
     alert("❌ " + err.message);
+    closeDeleteModal();
   }
 }
 </script>

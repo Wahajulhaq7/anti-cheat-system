@@ -11,16 +11,32 @@ if (!role || !token) {
   window.location.href = "student.html";
 }
 
-// Logout function
-function logout() {
-  localStorage.clear();
-  window.location.href = "login.html";
+// ---------------------------
+// MODAL STATE VARIABLES
+// ---------------------------
+let detectionToDeleteId = null;
+
+// ---------------------------
+// LOGOUT FUNCTIONS
+// ---------------------------
+function openLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'flex';
 }
 
-// Keep track of loaded detections to avoid duplicates
+function closeLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'none';
+}
+
+function confirmLogout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+
+// ---------------------------
+// LOAD DATA
+// ---------------------------
 let loadedDetections = new Set();
 
-// Load detections on page load and then refresh periodically
 window.onload = () => {
   loadDetections();
   setInterval(loadDetections, 5000); // refresh every 5 seconds
@@ -43,7 +59,6 @@ async function loadDetections() {
     const detections = await res.json();
     const tbody = document.querySelector("#detectionsTable tbody");
 
-    // Only clear if empty state text is currently shown
     if (tbody.innerHTML.includes("No detections found")) {
       tbody.innerHTML = "";
     }
@@ -53,21 +68,18 @@ async function loadDetections() {
       return;
     }
 
-    // Add new detections on top, skip duplicates
     detections.reverse().forEach(det => {
       const detId = det.id; 
-      if (loadedDetections.has(detId)) return; // skip if already loaded
+      if (loadedDetections.has(detId)) return;
       loadedDetections.add(detId);
 
       let path = det.frame_image_path.replace(/\\/g, "/");
-      // remove accidental leading uploads/
       if (path.startsWith("uploads/")) {
         path = path.replace("uploads/", "");
       }
       const imageUrl = `http://localhost:8000/uploads/${path}`;
 
       const tr = document.createElement("tr");
-      // Assign ID to row for easy removal
       tr.id = `row-${detId}`; 
 
       tr.innerHTML = `
@@ -77,16 +89,16 @@ async function loadDetections() {
         <td>${det.movement_type || "Unknown"}</td>
         <td>${new Date(det.timestamp || Date.now()).toLocaleString()}</td>
         <td>
-           <button class="btn-view" onclick="openModal('${imageUrl}')">
+           <button class="btn-view" onclick="openImageModal('${imageUrl}')">
              <i class="fa-solid fa-eye"></i> View
            </button>
            
-           <button class="btn-delete" onclick="deleteDetection(${detId})">
+           <button class="btn-delete" onclick="openDeleteModal(${detId})">
              <i class="fa-solid fa-trash"></i> Delete
            </button>
         </td>
       `;
-      tbody.prepend(tr); // add new rows to top
+      tbody.prepend(tr); 
     });
 
   } catch (err) {
@@ -94,65 +106,93 @@ async function loadDetections() {
   }
 }
 
-// ✅ DELETE FUNCTION
-async function deleteDetection(id) {
-  if (!confirm("Are you sure you want to delete this detection logs and image?")) {
-    return;
-  }
+// ---------------------------
+// DELETE FUNCTIONS
+// ---------------------------
+function openDeleteModal(id) {
+    detectionToDeleteId = id;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    detectionToDeleteId = null;
+}
+
+// ✅ SUCCESS MODAL FUNCTIONS
+function openSuccessModal() {
+    document.getElementById('successModal').style.display = 'flex';
+}
+
+function closeSuccessModal() {
+    document.getElementById('successModal').style.display = 'none';
+}
+
+async function confirmDelete() {
+  if (!detectionToDeleteId) return;
 
   try {
-    const res = await fetch(`http://localhost:8000/monitor/detection/${id}`, {
+    const res = await fetch(`http://localhost:8000/monitor/detection/${detectionToDeleteId}`, {
       method: "DELETE",
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
+      headers: { "Authorization": `Bearer ${token}` }
     });
 
     if (!res.ok) {
       throw new Error("Failed to delete detection");
     }
 
-    // Remove from UI immediately
-    const row = document.getElementById(`row-${id}`);
+    const row = document.getElementById(`row-${detectionToDeleteId}`);
     if (row) {
       row.remove();
     }
     
-    loadedDetections.delete(id);
+    loadedDetections.delete(detectionToDeleteId);
     
-    // Check if table is empty
     const tbody = document.querySelector("#detectionsTable tbody");
     if (!tbody.hasChildNodes()) {
        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#999;">No detections found.</td></tr>`;
     }
 
+    closeDeleteModal(); 
+    
+    // ✅ TRIGGER SUCCESS MODAL HERE
+    openSuccessModal(); 
+
   } catch (err) {
     console.error(err);
     alert("Error deleting detection.");
+    closeDeleteModal();
   }
 }
 
-// ✅ MODAL FUNCTIONS
-function openModal(imageUrl) {
+// ---------------------------
+// IMAGE MODAL FUNCTIONS
+// ---------------------------
+function openImageModal(imageUrl) {
     const modal = document.getElementById('imageModal');
     const modalImg = document.getElementById('modalImage');
     
     modalImg.src = imageUrl;
-    // Use Flexbox to center (defined in CSS)
     modal.style.display = "flex"; 
 }
 
-function closeModal() {
+function closeImageModal() {
     const modal = document.getElementById('imageModal');
     modal.style.display = "none";
-    // Clear src to stop video/loading
     document.getElementById('modalImage').src = ""; 
 }
 
-// Close if clicked outside the image
+// ---------------------------
+// CLICK OUTSIDE TO CLOSE
+// ---------------------------
 window.onclick = function(event) {
-    const modal = document.getElementById('imageModal');
-    if (event.target === modal) {
-        closeModal();
-    }
+    const imageModal = document.getElementById('imageModal');
+    const logoutModal = document.getElementById('logoutModal');
+    const deleteModal = document.getElementById('deleteModal');
+    const successModal = document.getElementById('successModal');
+
+    if (event.target === imageModal) closeImageModal();
+    if (event.target === logoutModal) closeLogoutModal();
+    if (event.target === deleteModal) closeDeleteModal();
+    if (event.target === successModal) closeSuccessModal();
 };

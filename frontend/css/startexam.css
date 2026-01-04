@@ -35,17 +35,22 @@ body {
     align-items: center;
     gap: 10px;
 }
+.nav-bar h1 i { color: #a855f7; } /* Purple Icon */
 
 .nav-buttons {
     display: flex;
-    gap: 15px;
+    gap: 20px;
     align-items: center;
 }
 
 #username {
     color: #fff;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
+#username i { color: #38bdf8; }
 
 .btn-logout {
     background: #e53e3e;
@@ -56,6 +61,9 @@ body {
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     transition: background 0.2s;
 }
 
@@ -86,6 +94,10 @@ body {
     border: 1px solid #2d3748;
 }
 
+/* Specific Width Adjustments */
+.exam-questions { flex: 2; } /* Questions take more space */
+.exam-monitoring { flex: 1; }
+
 /* Section Headings */
 .exam-questions h2,
 .exam-monitoring h2 {
@@ -94,11 +106,23 @@ body {
     margin-bottom: 20px;
     border-bottom: 1px solid #2d3748;
     padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
+.exam-questions h2 i { color: #4ade80; }
+.exam-monitoring h2 i { color: #f472b6; }
 
 /* =========================================
    QUESTIONS LIST
    ========================================= */
+.placeholder {
+    color: #a0aec0;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
 .question-block {
     margin-bottom: 20px;
     padding-bottom: 15px;
@@ -106,9 +130,10 @@ body {
 }
 
 .question-block p {
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     line-height: 1.5;
     color: #e2e8f0;
+    font-size: 15px;
 }
 
 .question-block p strong {
@@ -123,15 +148,16 @@ body {
 
 .question-block li {
     background-color: #2d3748; /* Dark Input Background */
-    padding: 10px 15px;
+    padding: 12px 15px;
     border-radius: 4px;
     margin-bottom: 8px;
     border: 1px solid #4a5568;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
 }
 
 .question-block li:hover {
     border-color: #5840d8; /* Hover Purple */
+    background-color: #323d52;
 }
 
 .question-block label {
@@ -163,7 +189,11 @@ input[type="radio"] {
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
-    margin-top: 10px;
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
 }
 
 .btn-submit:hover {
@@ -179,36 +209,62 @@ input[type="radio"] {
 /* =========================================
    WEBCAM MONITORING
    ========================================= */
+.video-wrapper {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid #5840d8;
+    background: #000;
+    margin-bottom: 15px;
+}
+
 #webcam {
     display: block;
     width: 100%;
-    border-radius: 6px;
-    border: 2px solid #2d3748;
-    background: #000;
-    margin-bottom: 15px;
+    height: auto;
+}
+
+/* Red "Live" dot overlay */
+.recording-indicator {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #ef4444;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.recording-indicator i { font-size: 10px; animation: blink 1s infinite; }
+
+@keyframes blink {
+    50% { opacity: 0; }
 }
 
 #detection-status {
     font-size: 14px;
     color: #cbd5e0;
     background-color: #2d3748;
-    padding: 10px;
+    padding: 12px;
     border-radius: 4px;
     text-align: center;
     border: 1px solid #4a5568;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
 }
 
 .status {
     font-weight: bold;
 }
 
-.status.success {
-    color: #4ade80; /* Light Green */
-}
-
-.status.alert {
-    color: #f87171; /* Light Red */
-}
+.status.success { color: #4ade80; } /* Light Green */
+.status.alert { color: #f87171; }   /* Light Red */
 
 /* =========================================
    GUIDELINES SECTION
@@ -223,35 +279,41 @@ input[type="radio"] {
     max-width: 1400px;
     margin-left: auto;
     margin-right: auto;
-    width: calc(100% - 80px); /* Adjust width to account for margins */
 }
 
 .exam-guidelines h3 {
     color: #fff;
     font-size: 16px;
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
+.exam-guidelines h3 i { color: #38bdf8; }
 
 .exam-guidelines ul {
-    list-style: disc;
-    padding-left: 20px;
+    list-style: none;
+    padding: 0;
     color: #cbd5e0;
     font-size: 14px;
 }
 
 .exam-guidelines li {
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
+.exam-guidelines li i { color: #4ade80; font-size: 12px; }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .exam-container {
-        flex-direction: column;
+        flex-direction: column-reverse; /* Put webcam on top on mobile */
         padding: 20px;
     }
     
     .exam-guidelines {
-        width: calc(100% - 40px);
         margin: 0 20px 20px 20px;
     }
     

@@ -6,6 +6,153 @@
   <title>Invigilator Dashboard</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/invigilator.css" />
+  
+  <style>
+    /* --- MODAL STYLES --- */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed;
+        z-index: 2000; /* High z-index */
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6); /* Darker backdrop */
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(3px); /* Blur effect */
+        display: flex; /* Ensure flex for centering itself (when visible via JS) */
+    }
+    
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        width: 400px; /* Fixed Width matching Admin Panel */
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* --- Header Styles --- */
+    .card-header-modal { 
+        background: #5840d8; /* Purple Header */
+        color: white; 
+        padding: 20px; 
+        display: flex;
+        justify-content: center; /* Center horizontally */
+        align-items: center;     /* Center vertically */
+        width: 100%;
+    }
+
+    .card-header-modal h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Success Header Green */
+    .modal-header-success {
+        color: #28a745;
+        font-size: 50px;
+        margin-bottom: 10px;
+        padding-top: 20px;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    /* --- Body Styles --- */
+    .modal-body { 
+        padding: 25px; 
+        text-align: center; 
+        background: #fff; 
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+
+    .modal-body p {
+        color: #4a5568;
+        font-size: 16px;
+        margin-bottom: 25px;
+        text-align: center;
+        width: 100%;
+    }
+
+    /* Button Container - Flex Center */
+    .modal-actions {
+        display: flex;
+        justify-content: center; 
+        align-items: center;
+        gap: 15px; /* Space between buttons */
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    /* --- Buttons --- */
+    .btn-confirm-logout {
+        background-color: #5840d8; /* Purple */
+        color: white;
+        border: none;
+        padding: 10px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        width: 130px; /* Fixed width */
+        height: 40px; /* Fixed height for vertical alignment */
+        display: flex;
+        justify-content: center; /* Horizontal Center Text */
+        align-items: center;     /* Vertical Center Text */
+        transition: background 0.2s;
+    }
+    .btn-confirm-logout:hover { background-color: #4c35de; }
+
+    .btn-cancel {
+        background-color: #6c757d; /* Gray */
+        color: white;
+        border: none;
+        padding: 10px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        width: 130px; /* Fixed width */
+        height: 40px; /* Fixed height */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: background 0.2s;
+    }
+    .btn-cancel:hover { background-color: #5a6268; }
+    
+    .btn-ok {
+        background-color: #28a745; 
+        color: white;
+        border: none;
+        padding: 10px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        width: 140px;
+        height: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .btn-ok:hover { background-color: #218838; }
+
+  </style>
 </head>
 <body>
 <nav class="nav-bar">
@@ -29,7 +176,7 @@
     
     <div class="user-menu">
       <span id="username"><i class="fa-solid fa-user"></i> Invigilator</span>
-      <button onclick="logout()" class="btn-logout">
+      <button onclick="openLogoutModal()" class="btn-logout">
         <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>
     </div>
@@ -63,6 +210,7 @@
         <input type="text" id="examTitle" placeholder="Enter exam title" required>
       </div>
       <div id="questionsContainer"></div>
+      
       <div class="form-actions">
         <button type="button" onclick="addQuestion()" class="btn-add-question">
           <i class="fa-solid fa-plus"></i> Add Question
@@ -72,32 +220,74 @@
         </button>
       </div>
     </form>
-
-    <div id="examsList" class="exam-list"></div>
-  </section>
-
-  <section class="monitor-section">
-    <h2><i class="fa-solid fa-video"></i> Live Student Monitoring</h2>
-    <div id="activeStudentsList" class="student-grid">
-      <p class="placeholder">Loading active students...</p>
-    </div>
-  </section>
-
-  <section class="alerts-section">
-    <h2><i class="fa-solid fa-bell"></i> Unusual Detections</h2>
-    <div id="unusualList" class="alerts-list">
-      <p class="placeholder">Loading unusual detections...</p>
-    </div>
-  </section>
+  </section> 
 </div>
 
+<div id="logoutModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="card-header-modal">
+      <h3><i class="fa-solid fa-right-from-bracket"></i> Confirm Logout</h3>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to log out?</p>
+      <div class="modal-actions">
+        <button onclick="confirmLogout()" class="btn-confirm-logout">Yes, Logout</button>
+        <button onclick="closeLogoutModal()" class="btn-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="successModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header-success">
+        <i class="fa-solid fa-circle-check"></i>
+    </div>
+    <div class="modal-body">
+        <h3 style="margin: 0 0 10px; color: #333;">Success!</h3>
+        <p id="successMessage" style="color:#666; margin-bottom: 20px;">Exam created successfully.</p>
+        <div class="modal-actions">
+            <button onclick="closeSuccessModal()" class="btn-ok">OK</button>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/invigilator.js"></script>
+
 <script>
-  function logout() {
+  // --- Logout Modal Logic ---
+  function openLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'flex';
+  }
+
+  function closeLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'none';
+  }
+
+  function confirmLogout() {
     localStorage.clear();
     window.location.href = 'login.html';
   }
+
+  // --- Success Modal Logic ---
+  function openSuccessModal(message) {
+    if(message) document.getElementById('successMessage').textContent = message;
+    document.getElementById('successModal').style.display = 'flex';
+  }
+
+  function closeSuccessModal() {
+    document.getElementById('successModal').style.display = 'none';
+  }
+
+  // Close modals on outside click
+  window.onclick = function(event) {
+    const logoutModal = document.getElementById('logoutModal');
+    const successModal = document.getElementById('successModal');
+    if (event.target == logoutModal) closeLogoutModal();
+    if (event.target == successModal) closeSuccessModal();
+  }
 </script>
 
-<script src="js/invigilator.js"></script>
 </body>
 </html>

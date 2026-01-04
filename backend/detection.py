@@ -4,7 +4,6 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, Form, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.database import get_db
-from backend.auth import get_current_user
 import cv2
 import numpy as np
 from datetime import datetime
@@ -12,28 +11,47 @@ import os
 import logging
 from ultralytics import YOLO
 import uuid
-import time  # <--- Added for cooldown
+import time
 
 logger = logging.getLogger(__name__)
 
-# Base Paths
+# ==============================================================================
+# PATHS
+# ==============================================================================
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 FRAME_SAVE_PATH = os.path.join(BASE_DIR, "uploads", "frames")
 os.makedirs(FRAME_SAVE_PATH, exist_ok=True)
 
-# Initialize YOLO model
+# ==============================================================================
+# 🧠 FYP CONTRIBUTION: WEIGHTED THREAT SCORING CONFIG
+# ==============================================================================
+# Scores assigned to specific detections per frame
+THREAT_WEIGHTS = {
+    "cell_phone": 50,       # High Priority
+    "multiple_persons": 40, # Medium-High Priority
+    "person_absent": 10     # Low Priority (needs persistence)
+}
+
+# Threshold to trigger a database log
+THREAT_THRESHOLD = 80 
+
+# Time window to keep scores (in seconds)
+SLIDING_WINDOW_SECONDS = 30.0 
+
+# Prevent spamming DB with same alert (in seconds)
+ALERT_COOLDOWN = 5.0 
+
+# ==============================================================================
+# GLOBAL STATE (In-Memory Storage)
+# Stores history of scores: { "user_id_exam_id": [ (timestamp, score), ... ] }
+# ==============================================================================
+SESSION_SCORES = {}
+LAST_DB_LOG_TIME = {}
+
+# ==============================================================================
+# MODEL LOADING
+# ==============================================================================
 model = None
-
-# ✅ GLOBAL COOLDOWN TRACKER
-# Prevents saving 30 images per second. 
-# Format: { user_id: last_violation_timestamp }
-last_alert_time = {}
-ALERT_COOLDOWN = 3.0 
-
-# ✅ GLOBAL LIVE MONITORING CACHE
-# Stores the latest frame info for every active user.
-# Format: { (user_id, exam_id): { ...data... } }
-LATEST_FRAME_CACHE = {}
 
 def load_model():
     global model
@@ -42,120 +60,139 @@ def load_model():
             model_path = "yolov8n.pt"
             if os.path.exists(model_path):
                 model = YOLO(model_path)
-                logger.info("✅ YOLO model loaded successfully")
+                logger.info("✅ Weighted Scoring Model (YOLO) Loaded")
             else:
-                logger.error("❌ YOLO model file not found")
-                raise FileNotFoundError("YOLO model file not found")
+                logger.warning("⚠️ Local model not found, downloading YOLOv8n...")
+                model = YOLO("yolov8n.pt")
         except Exception as e:
-            logger.error(f"❌ Failed to load YOLO model: {e}")
+            logger.error(f"❌ Failed to load YOLO: {e}")
             raise e
     return model
 
-def detect_faces_and_movements(img, user_id, exam_id):
-    movement_log = []
-    current_time = time.time()
+# ==============================================================================
+# CORE LOGIC: UPDATE SCORES & CHECK THRESHOLD
+# ==============================================================================
+def update_threat_score(user_id, exam_id, frame_score):
+    """
+    Adds current score to history, prunes old scores, and checks threshold.
+    Returns: (is_alert_triggered, current_total_score)
+    """
+    key = f"{user_id}_{exam_id}"
+    now = time.time()
 
-    # ✅ 1. COOLDOWN CHECK
-    # If we just logged a violation for this user < 3 seconds ago, ignore this frame.
-    if user_id in last_alert_time:
-        if current_time - last_alert_time[user_id] < ALERT_COOLDOWN:
-            return img, [] 
+    # 1. Initialize session if new
+    if key not in SESSION_SCORES:
+        SESSION_SCORES[key] = []
 
-    try:
-        yolo_model = load_model()
-        results = yolo_model(img)
-        
-        # We need to determine the state of THIS frame
-        person_count = 0
-        violation_detected = False
-        movement_type = "normal_behavior"
-        confidence = 0.0
+    # 2. Add current frame's score (if any)
+    if frame_score > 0:
+        SESSION_SCORES[key].append((now, frame_score))
 
-        # Scan detections
-        for result in results:
-            boxes = result.boxes
-            if boxes is not None:
-                # Count people with confidence > 0.5
-                people_boxes = [
-                    b for b in boxes 
-                    if yolo_model.names[int(b.cls[0])] == "person" 
-                    and float(b.conf[0]) > 0.5
-                ]
-                person_count = len(people_boxes)
-                
-                if len(people_boxes) > 0:
-                    confidence = float(people_boxes[0].conf[0])
-                
-                break # Only process the first result batch
+    # 3. Sliding Window: Remove scores older than window limit
+    # Keep only events where timestamp > (now - 30s)
+    SESSION_SCORES[key] = [
+        event for event in SESSION_SCORES[key] 
+        if event[0] > (now - SLIDING_WINDOW_SECONDS)
+    ]
 
-        # ✅ 2. DETERMINE IF VIOLATION
-        if person_count == 0:
-            movement_type = "person_absent"
-            violation_detected = True
-        elif person_count > 1:
-            movement_type = "multiple_persons"
-            violation_detected = True
-        else:
-            # person_count == 1 means NORMAL. 
-            # We explicitly DO NOT set violation_detected = True
-            pass 
+    # 4. Calculate Total Accumulated Score
+    total_score = sum(score for _, score in SESSION_SCORES[key])
 
-        # =========================================================
-        # ✅ LIVE MONITORING: ALWAYS SAVE LATEST FRAME
-        # This runs for EVERY processed frame, regardless of violation
-        # =========================================================
-        try:
-            # Save as a fixed filename (overwrite) to save disk space
-            latest_filename = f"latest_{user_id}_{exam_id}.jpg"
-            latest_path = os.path.join(FRAME_SAVE_PATH, latest_filename)
-            cv2.imwrite(latest_path, img)
-
-            # Update the global cache for the monitor endpoint
-            LATEST_FRAME_CACHE[(int(user_id), int(exam_id))] = {
-                "user_id": user_id,
-                "exam_id": exam_id,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "movement_type": movement_type,
-                "frame_image_path": f"uploads/frames/{latest_filename}"
-            }
-        except Exception as e:
-            logger.error(f"❌ Failed to save latest live frame: {e}")
-        # =========================================================
-
-        # ✅ 3. SAVE TO DB ONLY IF VIOLATION
-        if violation_detected:
-            timestamp = datetime.now()
-            # Generate unique filename for the violation record
-            filename = (
-                f"{user_id}_{exam_id}_"
-                f"{timestamp.strftime('%Y%m%d_%H%M%S')}_"
-                f"{uuid.uuid4().hex[:6]}.jpg"
-            )
-
-            frame_path = os.path.join(FRAME_SAVE_PATH, filename)
-            cv2.imwrite(frame_path, img)
-
-            movement_log.append({
-                "user_id": user_id,
-                "exam_id": exam_id,
-                "movement_type": movement_type,
-                "timestamp": timestamp,
-                "frame_image_path": f"frames/{filename}",
-                "confidence": confidence,
-                "person_count": person_count
-            })
+    # 5. Check Threshold & Cooldown
+    is_alert = False
+    
+    if total_score >= THREAT_THRESHOLD:
+        last_log = LAST_DB_LOG_TIME.get(key, 0)
+        if (now - last_log) > ALERT_COOLDOWN:
+            is_alert = True
+            LAST_DB_LOG_TIME[key] = now
             
-            # Update cooldown timer
-            last_alert_time[user_id] = current_time
-            logger.info(f"🚨 Violation Logged: {movement_type}")
+            # Optional: Reduce score after alert to prevent immediate re-trigger?
+            # We remove the oldest half of events to "reset" slightly
+            cut_idx = len(SESSION_SCORES[key]) // 2
+            SESSION_SCORES[key] = SESSION_SCORES[key][cut_idx:]
 
-    except Exception as e:
-        logger.error(f"❌ Detection error: {e}")
-        # Only log errors if they are critical, or skip to avoid DB clutter
-        pass
+    return is_alert, total_score
 
-    return img, movement_log
+# ==============================================================================
+# DETECTION PIPELINE
+# ==============================================================================
+def detect_faces_and_movements(img, user_id, exam_id):
+    yolo = load_model()
+    
+    # Run Inference
+    results = yolo(img, verbose=False)[0]
+    boxes = results.boxes
 
+    # Frame Analysis
+    person_count = 0
+    phone_detected = False
+    
+    # Analyze detections
+    if boxes:
+        for box in boxes:
+            cls_id = int(box.cls[0])
+            conf = float(box.conf[0])
+
+            # Class 0 = Person
+            if cls_id == 0 and conf > 0.5:
+                person_count += 1
+            
+            # Class 67 = Cell Phone
+            if cls_id == 67 and conf > 0.4:
+                phone_detected = True
+
+    # Calculate Score for THIS specific frame
+    current_frame_score = 0
+    primary_reason = "normal"
+
+    if person_count == 0:
+        current_frame_score += THREAT_WEIGHTS["person_absent"]
+        primary_reason = "person_absent"
+    elif person_count > 1:
+        current_frame_score += THREAT_WEIGHTS["multiple_persons"]
+        primary_reason = "multiple_persons"
+    
+    if phone_detected:
+        current_frame_score += THREAT_WEIGHTS["cell_phone"]
+        primary_reason = "cell_phone_detected" # Higher priority
+
+    # Update Sliding Window & Check Threshold
+    alert_triggered, total_score = update_threat_score(user_id, exam_id, current_frame_score)
+
+    logs = []
+    
+    # ✅ SAVE TO DB ONLY IF THRESHOLD CROSSED
+    if alert_triggered:
+        ts = datetime.now()
+        filename = f"{user_id}_{exam_id}_{ts.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+        path = os.path.join(FRAME_SAVE_PATH, filename)
+        
+        # Draw Score on Image for Evidence
+        cv2.putText(img, f"Threat Score: {total_score}/{THREAT_THRESHOLD}", (20, 50), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(img, f"Reason: {primary_reason}", (20, 90), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        
+        cv2.imwrite(path, img)
+
+        logs.append({
+            "user_id": user_id,
+            "exam_id": exam_id,
+            "movement_type": primary_reason,
+            "timestamp": ts,
+            "frame_image_path": f"frames/{filename}",
+            "confidence": total_score,   # Using confidence field to store Threat Score
+            "person_count": person_count
+        })
+        
+        logger.warning(f"🚨 ALERT | User: {user_id} | Score: {total_score} | Reason: {primary_reason}")
+
+    return img, logs
+
+# ==============================================================================
+# API ROUTER
+# ==============================================================================
 router = APIRouter(tags=["Video"])
 
 @router.post("/")
@@ -167,46 +204,45 @@ async def process_frame(
 ):
     try:
         contents = await frame.read()
-        np_arr = np.frombuffer(contents, np.uint8)
-        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         if img is None:
-            raise HTTPException(status_code=400, detail="Invalid image format")
+            raise HTTPException(status_code=400, detail="Invalid image")
 
-        _, movement_log = detect_faces_and_movements(img, user_id, exam_id)
+        _, logs = detect_faces_and_movements(img, user_id, exam_id)
 
-        # Only insert if there is actually a log (meaning a violation occurred)
-        for log in movement_log:
+        # Save Alerts to DB
+        for log in logs:
             db.execute(text("""
                 INSERT INTO dbo.Movements
                 (user_id, exam_id, movement_type, timestamp, frame_image_path)
-                VALUES (:uid, :eid, :type, :ts, :path)
+                VALUES (:u, :e, :t, :ts, :p)
             """), {
-                "uid": log["user_id"],
-                "eid": log["exam_id"],
-                "type": log["movement_type"],
+                "u": log["user_id"],
+                "e": log["exam_id"],
+                "t": log["movement_type"],
                 "ts": log["timestamp"],
-                "path": log["frame_image_path"]
+                "p": log["frame_image_path"]
             })
-
         db.commit()
 
         return {
             "status": "success",
-            "count": len(movement_log),
-            "movements": movement_log
+            "processed": True,
+            "alert_generated": len(logs) > 0,
+            "logs": logs
         }
 
     except Exception as e:
         db.rollback()
-        logger.error(f"❌ Failed to process frame: {str(e)}")
-        # Return error as JSON to prevent frontend crash
+        logger.error(f"❌ Processing failed: {e}")
         return {"status": "error", "message": str(e)}
 
 @router.get("/health")
-async def video_health_check():
+async def video_health():
     try:
         load_model()
-        return {"status": "healthy", "model_loaded": model is not None}
+        return {"status": "healthy", "mode": "weighted_scoring_yolo_only"}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}

@@ -1,50 +1,271 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Received Reports - Invigilator</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css"> </head>
+  <meta charset="UTF-8">
+  <title>Received Reports - Invigilator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/invigilator.css"> <style>
+    /* Table & Page specific styles */
+    .table-container {
+        background-color: #1e253f;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        text-align: left;
+        color: #a0aec0;
+        font-size: 13px;
+        padding: 15px;
+        border-bottom: 1px solid #4a5568;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    td {
+        padding: 15px;
+        border-bottom: 1px solid #2d3748;
+        color: #e2e8f0;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+
+    tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-download {
+        background-color: #5840d8;
+        color: white;
+        text-decoration: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.2s;
+    }
+    .btn-download:hover {
+        background-color: #4c35de;
+    }
+
+    /* --- MODAL STYLES (Consistent) --- */
+    .modal { 
+        display: none; 
+        position: fixed; 
+        z-index: 2000; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        height: 100%; 
+        background-color: rgba(0,0,0,0.6); 
+        justify-content: center; 
+        align-items: center; 
+        backdrop-filter: blur(3px); 
+    }
+    
+    .modal-content { 
+        background-color: #fefefe; 
+        margin: auto; 
+        padding: 0; 
+        border-radius: 8px; 
+        width: 400px; 
+        text-align: center; 
+        position: relative; 
+        overflow: hidden; 
+        display: flex; 
+        flex-direction: column; 
+    }
+    
+    .card-header-modal { 
+        background: #5840d8; 
+        color: white; 
+        padding: 20px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        width: 100%; 
+    }
+    
+    .card-header-modal h3 { 
+        margin: 0; 
+        font-size: 18px; 
+        font-weight: 600; 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+    }
+    
+    .modal-body { 
+        padding: 25px; 
+        width: 100%; 
+        background: #fff; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+    }
+    
+    .modal-body p { 
+        color: #4a5568; 
+        font-size: 16px; 
+        margin-bottom: 25px; 
+        text-align: center; 
+        width: 100%; 
+    }
+    
+    .modal-actions { 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        gap: 15px; 
+        width: 100%; 
+        margin-top: 10px; 
+    }
+    
+    /* Buttons - Centering Fix */
+    .btn-confirm-logout { 
+        background-color: #5840d8; 
+        color: white; 
+        border: none; 
+        padding: 0; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        width: 130px; 
+        height: 40px; 
+        font-weight: 600; 
+        font-size: 14px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        transition: background 0.2s; 
+    }
+    .btn-confirm-logout:hover { background-color: #4c35de; }
+
+    .btn-cancel { 
+        background-color: #6c757d; 
+        color: white; 
+        border: none; 
+        padding: 0; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        width: 130px; 
+        height: 40px; 
+        font-weight: 600; 
+        font-size: 14px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        transition: background 0.2s; 
+    }
+    .btn-cancel:hover { background-color: #5a6268; }
+  </style>
+</head>
 <body>
 
-    <nav class="navbar">
-        <div class="brand"><i class="fa-solid fa-shield-halved"></i> Anti-Cheat System</div>
-        <div class="nav-links">
-            <a href="invigilator.html"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    <nav class="nav-bar">
+      <h1><i class="fa-solid fa-user-secret"></i> Invigilator Dashboard</h1>
+      <div class="nav-buttons">
+        <button onclick="location.href='invigilator.html'" class="btn-nav">
+          <i class="fa-solid fa-gauge"></i> Dashboard
+        </button>
+        <button onclick="location.href='students.html'" class="btn-nav">
+          <i class="fa-solid fa-users"></i> Students
+        </button>
+        <button onclick="location.href='manage_exams.html'" class="btn-nav">
+          <i class="fa-solid fa-file-lines"></i> Exams Created
+        </button>
+        <button onclick="location.href='submitted_exams.html'" class="btn-nav">
+          <i class="fa-solid fa-clipboard-check"></i> Submitted Exams
+        </button>
+        <button onclick="location.href='invigilator_reports.html'" class="btn-nav active" style="color: #fff; background-color: rgba(255, 255, 255, 0.1);">
+          <i class="fa-solid fa-inbox"></i> Received Reports
+        </button>
+        <button onclick="location.href='unusual.html'" class="btn-nav">
+          <i class="fa-solid fa-triangle-exclamation"></i> Unusual Detections
+        </button>
+        
+        <div class="user-menu">
+          <span id="username"><i class="fa-solid fa-user"></i> Invigilator</span>
+          <button onclick="openLogoutModal()" class="btn-logout">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
         </div>
+      </div>
     </nav>
 
-    <div class="main-content">
-        <div class="dashboard-banner">
+    <div class="dashboard-container">
+        <section>
             <h2><i class="fa-solid fa-inbox"></i> Received Reports</h2>
-            <p>Reports sent by Admin regarding suspicious student activities.</p>
-        </div>
-
-        <div class="table-container">
-            <table id="reportsTable">
-                <thead>
-                    <tr>
-                        <th>Date Received</th>
-                        <th>Student Info</th>
-                        <th>Exam</th>
-                        <th>Sent By</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="reportsBody">
+            <p style="color: #a0aec0; margin-bottom: 20px;">Reports sent by Admin regarding suspicious student activities.</p>
+            
+            <div class="table-container">
+                <table id="reportsTable">
+                    <thead>
+                        <tr>
+                            <th>Date Received</th>
+                            <th>Student Info</th>
+                            <th>Exam</th>
+                            <th>Sent By</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsBody">
                     </tbody>
-            </table>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div id="logoutModal" class="modal">
+      <div class="modal-content">
+        <div class="card-header-modal">
+          <h3><i class="fa-solid fa-right-from-bracket"></i> Confirm Logout</h3>
         </div>
+        <div class="modal-body">
+          <p>Are you sure you want to log out?</p>
+          <div class="modal-actions">
+            <button onclick="confirmLogout()" class="btn-confirm-logout">Yes, Logout</button>
+            <button onclick="closeLogoutModal()" class="btn-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        // --- JS LOGIC INLINE FOR SIMPLICITY ---
         const token = localStorage.getItem("token");
-        if (!token) window.location.href = "login.html";
+        const role = (localStorage.getItem('role') || '').toLowerCase();
+        const username = localStorage.getItem('username') || 'Invigilator';
+
+        if (!token || role !== 'invigilator') {
+            window.location.href = "login.html";
+        }
+
+        // Set username
+        const usernameEl = document.getElementById('username');
+        if(usernameEl) usernameEl.innerHTML = `<i class="fa-solid fa-user"></i> ${username}`;
+
+        // --- Logout Modal Logic ---
+        function openLogoutModal() { document.getElementById('logoutModal').style.display = 'flex'; }
+        function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
+        function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+          const logoutModal = document.getElementById('logoutModal');
+          if (event.target == logoutModal) closeLogoutModal();
+        }
 
         async function loadReports() {
             const tbody = document.getElementById("reportsBody");
-            tbody.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
+            tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 20px;'>Loading...</td></tr>";
 
             try {
                 const res = await fetch("http://localhost:8000/log/reports/received", {
@@ -57,29 +278,28 @@
                 tbody.innerHTML = "";
 
                 if (reports.length === 0) {
-                    tbody.innerHTML = "<tr><td colspan='5'>No reports received yet.</td></tr>";
+                    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 20px;'>No reports received yet.</td></tr>";
                     return;
                 }
 
                 reports.forEach(r => {
                     const date = new Date(r.sent_at).toLocaleString();
-                    // Assuming you set up static file serving for 'uploaded_reports' folder
                     const downloadLink = `http://localhost:8000/uploaded_reports/${r.report_file_path}`;
 
                     const row = `
                         <tr>
                             <td>${date}</td>
                             <td>
-                                <strong>${r.student_name}</strong><br>
-                                <span style="font-size:0.85em; color:gray;">ID: ${r.student_id}</span>
+                                <strong style="color:white;">${r.student_name}</strong><br>
+                                <span style="font-size:0.85em; color:#a0aec0;">ID: ${r.student_id}</span>
                             </td>
                             <td>
-                                <strong>${r.exam_title}</strong><br>
-                                <span style="font-size:0.85em; color:gray;">ID: ${r.exam_id}</span>
+                                <strong style="color:white;">${r.exam_title}</strong><br>
+                                <span style="font-size:0.85em; color:#a0aec0;">ID: ${r.exam_id}</span>
                             </td>
                             <td>Admin: ${r.sender_name}</td>
                             <td>
-                                <a href="${downloadLink}" target="_blank" class="btn-create" style="text-decoration:none; font-size:0.9em;">
+                                <a href="${downloadLink}" target="_blank" class="btn-download">
                                     <i class="fa-solid fa-download"></i> Download PDF
                                 </a>
                             </td>
@@ -90,7 +310,7 @@
 
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan='5' style="color:red;">Error: ${err.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan='5' style="color:#ef4444; text-align:center; padding:20px;">Error: ${err.message}</td></tr>`;
             }
         }
 

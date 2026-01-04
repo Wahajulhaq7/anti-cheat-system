@@ -252,7 +252,9 @@ td {
 }
 .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
 
-/* Modal Styles */
+/* =========================================
+   MODAL STYLES (UPDATED FOR WHITE THEME)
+   ========================================= */
 .modal {
   display: none;
   position: fixed;
@@ -261,47 +263,92 @@ td {
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.7);
+  background-color: rgba(0, 0, 0, 0.6);
   justify-content: center;
   align-items: center;
+  backdrop-filter: blur(2px);
 }
 
 .modal-content {
-  background-color: #1e253f;
+  background-color: #ffffff; /* White background */
   border-radius: 8px;
   width: 400px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  font-family: 'Segoe UI', sans-serif;
 }
 
+/* Header */
 .card-header-modal {
   background-color: #5840d8;
-  padding: 15px;
+  padding: 15px 20px;
   color: white;
+  text-align: center;
 }
 
-.modal-body { padding: 20px; }
-.modal-body label { display: block; margin: 10px 0 5px; font-size: 14px; color: #e2e8f0; }
+.card-header-modal h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
 
-.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+/* Body */
+.modal-body {
+  padding: 25px;
+  background-color: #ffffff;
+  text-align: center;
+}
 
-.btn-save {
-  flex: 1;
-  background-color: #3b2cb3;
-  color: white;
+/* --- UPDATED LABEL COLOR FOR VISIBILITY --- */
+.modal-body label {
+  display: block;
+  margin: 10px 0 5px;
+  font-size: 14px;
+  color: #5840d8; /* Theme Purple for High Visibility */
+  font-weight: 600; /* Bolder text */
+}
+
+/* Input Wrapper inside modal */
+.modal-body .input-wrapper {
+    text-align: left;
+}
+
+/* Action Buttons Container */
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 15px;
+}
+
+/* Fixed Button Sizing */
+.btn-save, .btn-cancel, .btn-confirm-logout {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  flex: 0 0 140px !important;
+  padding: 10px 0;
   border: none;
-  padding: 10px;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  color: white;
 }
+
+.btn-save, .btn-confirm-logout {
+  background-color: #5840d8;
+}
+.btn-save:hover, .btn-confirm-logout:hover {
+  background-color: #4c35de;
+}
+
 .btn-cancel {
-  flex: 1;
-  background-color: #e53e3e;
-  color: white;
-  border: none;
-  padding: 10px;
-  border-radius: 4px;
-  cursor: pointer;
+  background-color: #6c757d;
+}
+.btn-cancel:hover {
+  background-color: #5a6268;
 }
 
 /* =========================================
@@ -417,4 +464,27 @@ td {
 
 .btn-start:hover {
   background-color: #4c32cb;
+}
+/* Add to css/style.css */
+.error-box {
+    display: none;                /* Hidden by default */
+    background-color: #f8d7da;    /* Light red background */
+    color: #721c24;               /* Dark red text */
+    border: 1px solid #f5c6cb;    /* Red border */
+    border-radius: 5px;           /* Rounded corners */
+    padding: 12px;                /* Inner spacing */
+    margin-top: 15px;             /* Space between button and this box */
+    margin-bottom: 0;
+    font-size: 14px;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;                     /* Space between icon and text */
+}
+
+/* Ensure the icon inside is visible */
+.error-box i {
+    color: #721c24;
 }

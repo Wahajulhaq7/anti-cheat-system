@@ -8,7 +8,6 @@ from backend.database import get_db
 from backend.auth import get_current_user
 from backend.models import Movement  # Assuming you have this ORM model
 from sqlalchemy import text
-from backend.detection import LATEST_FRAME_CACHE  # <--- Added import for live monitoring cache
 import os
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -253,25 +252,6 @@ async def get_unusual_movements(
     rows = db.execute(query).fetchall()
     return [dict(r._mapping) for r in rows]
 
-# ==========================================================
-# ✅ NEW: Endpoint for Live Feed
-# ==========================================================
-@router.get("/latest-frame")
-async def get_latest_frame(user_id: int, exam_id: int):
-    """
-    Retrieve the URL and status of the latest processed frame 
-    for a specific student/exam session from the in-memory cache.
-    """
-    key = (user_id, exam_id)
-    data = LATEST_FRAME_CACHE.get(key)
-
-    if data:
-        return data
-    else:
-        # Return empty response if no frame received yet
-        return {}
-    
-
     # ✅ NEW DELETE ENDPOINT
 @router.delete("/detection/{detection_id}")
 async def delete_detection(
@@ -312,3 +292,23 @@ async def delete_detection(
     db.commit()
 
     return {"status": "success", "message": "Detection deleted"}
+
+# ---------------- ✅ NEW: Get Total Suspicious Images Count ----------------
+@router.get("/suspicious-images/count")
+async def get_suspicious_images_count(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Get the absolute total count of detected suspicious images.
+    Used for the Invigilator Dashboard counter.
+    """
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["admin", "invigilator"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Count all records that have a frame_image_path (indicating a detection image)
+    query = text("SELECT COUNT(*) FROM dbo.Movements WHERE frame_image_path IS NOT NULL")
+    count = db.execute(query).scalar()
+    
+    return {"count": count}

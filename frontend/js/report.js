@@ -1,5 +1,27 @@
 // frontend/js/report.js
 
+// --- SUCCESS MODAL LOGIC (New) ---
+function openSuccessModal(message) {
+    const modal = document.getElementById('successModal');
+    const msgElement = document.getElementById('successMessage');
+    
+    if (modal) {
+        if (msgElement && message) {
+            msgElement.textContent = message;
+        }
+        modal.style.display = 'flex';
+    }
+}
+
+function closeSuccessModal() {
+    const modal = document.getElementById('successModal');
+    if (modal) {
+        modal.style.display = 'none';
+        // Optional: Re-open image modal if workflow continues
+        // document.getElementById("imageModal").style.display = "flex";
+    }
+}
+
 // --- FIX: Inject CSS styles dynamically for Centered Modal & App Theme ---
 function injectDynamicStyles() {
     const style = document.createElement('style');
@@ -24,8 +46,8 @@ function injectDynamicStyles() {
         /* --- MODAL CONTENT (The Window) --- */
         .modal-content {
             background-color: #ffffff;
-            width: 90%;
-            max-width: 800px; /* Max width for large screens */
+            /* Force Standard Width (Small) unless overridden */
+            width: 400px !important; 
             border-radius: 12px;
             box-shadow: 0 15px 40px rgba(0,0,0,0.5);
             overflow: hidden; /* Clips the header corners */
@@ -33,6 +55,17 @@ function injectDynamicStyles() {
             display: flex;
             flex-direction: column;
             max-height: 90vh; /* Prevent it from being taller than screen */
+        }
+
+        /* Exception for Image Grid to remain large */
+        #imageModal .modal-content {
+             width: 900px !important;
+             max-width: 90% !important;
+        }
+
+        /* Send Report Modal matches standard size */
+        #sendReportModal .modal-content {
+             width: 400px !important;
         }
 
         @keyframes zoomIn {
@@ -396,12 +429,6 @@ function closeImageModal() {
     document.getElementById("imageModal").style.display = "none";
 }
 
-// frontend/js/report.js
-
-// ... (Keep injectDynamicStyles function) ...
-
-// ... (Keep existing fetchReports, openImageSelector, toggleImageSelection, generateCustomPDF functions) ...
-
 // =========================================================
 // ✅ NEW FUNCTIONALITY: SEND REPORT TO INVIGILATOR
 // =========================================================
@@ -512,8 +539,9 @@ async function sendReportToInvigilator() {
 
         if (!res.ok) throw new Error(data.detail || "Failed to send report");
 
-        alert("✅ Report sent successfully!");
+        // ✅ REPLACED ALERT WITH SUCCESS MODAL
         closeSendModal();
+        openSuccessModal("Report sent successfully!");
 
     } catch (err) {
         console.error(err);
@@ -533,6 +561,11 @@ function closeSendModal() {
 window.onclick = function(event) {
     const imgModal = document.getElementById("imageModal");
     const sendModal = document.getElementById("sendReportModal");
+    const successModal = document.getElementById("successModal");
+    const logoutModal = document.getElementById('logoutModal');
+
     if (event.target === imgModal) closeImageModal();
     if (event.target === sendModal) closeSendModal();
+    if (event.target === successModal) closeSuccessModal();
+    if (event.target === logoutModal && typeof closeLogoutModal === 'function') closeLogoutModal();
 };
