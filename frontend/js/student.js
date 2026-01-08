@@ -115,6 +115,50 @@ function logout() {
 }
 
 /**
+ * ✅ CHECK FACE REGISTRATION (Updated)
+ * - If 404: Open Modal
+ * - If 200: Disable "Register" Button
+ */
+async function checkFaceRegistration() {
+    const user_id = localStorage.getItem("user_id");
+    if (!user_id) return;
+
+    try {
+        // Try to fetch the profile image
+        const res = await fetch(`http://localhost:8000/uploads/profiles/${user_id}.jpg`, {
+            method: 'HEAD',
+            cache: 'no-store'
+        });
+
+        const regButton = document.querySelector(".btn-face-auth"); // Find the button
+
+        if (res.status === 200) {
+            // ✅ Image Exists -> Disable Button
+            if (regButton) {
+                regButton.disabled = true;
+                regButton.innerHTML = '<i class="fa-solid fa-check-circle"></i> Face Registered';
+                regButton.style.backgroundColor = "#2f855a"; // Green color
+                regButton.style.cursor = "default";
+                regButton.onclick = null; // Prevent clicking
+            }
+        } 
+        else if (res.status === 404) {
+            // ❌ Image Missing -> Open Modal
+            console.log("No Face ID found. Opening registration modal.");
+            
+            const msg = document.querySelector("#faceModal .modal-body p");
+            if(msg) {
+                msg.innerHTML = "<strong style='color:#e53e3e'>⚠️ Face ID Required</strong><br>You have not registered your face yet.<br>Please capture a clear photo to continue. Remove any obstructions like glasses or hats!!";
+            }
+            
+            openFaceModal();
+        }
+    } catch (err) {
+        console.warn("Could not verify face registration:", err);
+    }
+}
+
+/**
  * Page-specific initialization
  */
 window.onload = () => {
@@ -125,10 +169,13 @@ window.onload = () => {
   if (document.getElementById("resultsBody")) {
     loadResults();
   }
+
+  // ✅ Trigger the check
+  checkFaceRegistration();
 };
 
 // ============================================================
-// 📸 FACE REGISTRATION LOGIC (NEW)
+// 📸 FACE REGISTRATION LOGIC
 // ============================================================
 let faceStream = null;
 
@@ -202,7 +249,18 @@ async function captureAndRegister() {
 
             if (res.ok) {
                 alert("✅ Face ID Registered Successfully!");
-                closeFaceModal();
+                closeFaceModal(); // Close modal
+                
+                // ✅ UPDATE BUTTON STATE INSTANTLY WITHOUT RELOAD
+                const regButton = document.querySelector(".btn-face-auth");
+                if (regButton) {
+                    regButton.disabled = true;
+                    regButton.innerHTML = '<i class="fa-solid fa-check-circle"></i> Face Registered';
+                    regButton.style.backgroundColor = "#2f855a";
+                    regButton.style.cursor = "default";
+                    regButton.onclick = null;
+                }
+
             } else {
                 const err = await res.json();
                 alert("❌ " + (err.detail || "Registration failed"));
@@ -211,8 +269,10 @@ async function captureAndRegister() {
             console.error(error);
             alert("❌ Network Error");
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture';
+            if (btn && !btn.disabled) { // Only reset if failed
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture';
+            }
         }
 
     }, 'image/jpeg');
