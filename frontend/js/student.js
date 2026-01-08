@@ -126,3 +126,94 @@ window.onload = () => {
     loadResults();
   }
 };
+
+// ============================================================
+// 📸 FACE REGISTRATION LOGIC (NEW)
+// ============================================================
+let faceStream = null;
+
+async function openFaceModal() {
+    const modal = document.getElementById('faceModal');
+    const video = document.getElementById('facePreview');
+    const btn = document.getElementById('btnCapture'); // Reset button state
+    
+    if(btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture';
+    }
+
+    modal.style.display = 'flex';
+
+    try {
+        // Start Webcam
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        faceStream = stream;
+        video.srcObject = stream;
+    } catch (err) {
+        console.error("Camera Error:", err);
+        alert("❌ Camera permission denied. Cannot register face.");
+        closeFaceModal();
+    }
+}
+
+function closeFaceModal() {
+    const modal = document.getElementById('faceModal');
+    modal.style.display = 'none';
+
+    // Stop Webcam
+    if (faceStream) {
+        faceStream.getTracks().forEach(track => track.stop());
+        faceStream = null;
+    }
+}
+
+async function captureAndRegister() {
+    const video = document.getElementById('facePreview');
+    const canvas = document.getElementById('captureCanvas');
+    const btn = document.getElementById('btnCapture');
+
+    if (!video.srcObject) return;
+
+    // 1. Draw video frame to canvas
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // 2. Convert to Blob (Image File)
+    canvas.toBlob(async (blob) => {
+        if (!blob) return;
+
+        // 3. Prepare Form Data
+        const formData = new FormData();
+        formData.append("file", blob, "face.jpg");
+
+        // UI Feedback
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch("http://localhost:8000/auth/register-face", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}` },
+                body: formData
+            });
+
+            if (res.ok) {
+                alert("✅ Face ID Registered Successfully!");
+                closeFaceModal();
+            } else {
+                const err = await res.json();
+                alert("❌ " + (err.detail || "Registration failed"));
+            }
+        } catch (error) {
+            console.error(error);
+            alert("❌ Network Error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture';
+        }
+
+    }, 'image/jpeg');
+}

@@ -12,167 +12,228 @@ import logging
 from ultralytics import YOLO
 import uuid
 import time
+import face_recognition
 
 logger = logging.getLogger(__name__)
 
 # ==============================================================================
-# PATHS
+# PATHS & SETUP
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 FRAME_SAVE_PATH = os.path.join(BASE_DIR, "uploads", "frames")
+PROFILE_PICS_PATH = os.path.join(BASE_DIR, "uploads", "profiles")
 os.makedirs(FRAME_SAVE_PATH, exist_ok=True)
 
 # ==============================================================================
-# 🧠 FYP CONTRIBUTION: WEIGHTED THREAT SCORING CONFIG
+# 🧠 INSTANT TRIGGER CONFIGURATION
 # ==============================================================================
-# Scores assigned to specific detections per frame
 THREAT_WEIGHTS = {
-    "cell_phone": 50,       # High Priority
-    "multiple_persons": 40, # Medium-High Priority
-    "person_absent": 10     # Low Priority (needs persistence)
+    "Mobile Phone Detected": 50,
+    "Book Detected": 40,
+    "Impersonation Detected": 100, # CRITICAL
+    "Multiple Persons": 40,
+    "Face Not Visible": 20,        # NEW: If body present but face hidden
+    "Looking Away": 15,
+    "Person Absent": 10
 }
 
-# Threshold to trigger a database log
-THREAT_THRESHOLD = 80 
+# ⚠️ ALERT: INSTANT LOGGING ENABLED (NO COOLDOWN)
+# Be careful: This will log every violation frame immediately.
 
-# Time window to keep scores (in seconds)
-SLIDING_WINDOW_SECONDS = 30.0 
-
-# Prevent spamming DB with same alert (in seconds)
-ALERT_COOLDOWN = 5.0 
-
-# ==============================================================================
-# GLOBAL STATE (In-Memory Storage)
-# Stores history of scores: { "user_id_exam_id": [ (timestamp, score), ... ] }
-# ==============================================================================
-SESSION_SCORES = {}
-LAST_DB_LOG_TIME = {}
-
-# ==============================================================================
-# MODEL LOADING
-# ==============================================================================
+KNOWN_FACE_CACHE = {} 
 model = None
 
 def load_model():
     global model
     if model is None:
-        try:
-            model_path = "yolov8n.pt"
-            if os.path.exists(model_path):
-                model = YOLO(model_path)
-                logger.info("✅ Weighted Scoring Model (YOLO) Loaded")
-            else:
-                logger.warning("⚠️ Local model not found, downloading YOLOv8n...")
-                model = YOLO("yolov8n.pt")
-        except Exception as e:
-            logger.error(f"❌ Failed to load YOLO: {e}")
-            raise e
+        model = YOLO("yolov8n.pt")
     return model
 
 # ==============================================================================
-# CORE LOGIC: UPDATE SCORES & CHECK THRESHOLD
+# 1. IDENTITY VERIFICATION (With Debugging)
 # ==============================================================================
-def update_threat_score(user_id, exam_id, frame_score):
+def verify_identity(rgb_frame, user_id):
     """
-    Adds current score to history, prunes old scores, and checks threshold.
-    Returns: (is_alert_triggered, current_total_score)
+    Returns: 
+        True  -> Identity Verified (It matches)
+        False -> Impersonation (Face found, but doesn't match)
+        None  -> No Face Found (Cannot verify)
     """
-    key = f"{user_id}_{exam_id}"
-    now = time.time()
-
-    # 1. Initialize session if new
-    if key not in SESSION_SCORES:
-        SESSION_SCORES[key] = []
-
-    # 2. Add current frame's score (if any)
-    if frame_score > 0:
-        SESSION_SCORES[key].append((now, frame_score))
-
-    # 3. Sliding Window: Remove scores older than window limit
-    # Keep only events where timestamp > (now - 30s)
-    SESSION_SCORES[key] = [
-        event for event in SESSION_SCORES[key] 
-        if event[0] > (now - SLIDING_WINDOW_SECONDS)
-    ]
-
-    # 4. Calculate Total Accumulated Score
-    total_score = sum(score for _, score in SESSION_SCORES[key])
-
-    # 5. Check Threshold & Cooldown
-    is_alert = False
-    
-    if total_score >= THREAT_THRESHOLD:
-        last_log = LAST_DB_LOG_TIME.get(key, 0)
-        if (now - last_log) > ALERT_COOLDOWN:
-            is_alert = True
-            LAST_DB_LOG_TIME[key] = now
+    # 1. Load Reference Image (Lazy Loading)
+    if user_id not in KNOWN_FACE_CACHE:
+        profile_path = os.path.join(PROFILE_PICS_PATH, f"{user_id}.jpg")
+        
+        if not os.path.exists(profile_path):
+            print(f"❌ [DEBUG] Profile picture not found for User {user_id}")
+            return None 
             
-            # Optional: Reduce score after alert to prevent immediate re-trigger?
-            # We remove the oldest half of events to "reset" slightly
-            cut_idx = len(SESSION_SCORES[key]) // 2
-            SESSION_SCORES[key] = SESSION_SCORES[key][cut_idx:]
+        try:
+            known_image = face_recognition.load_image_file(profile_path)
+            encodings = face_recognition.face_encodings(known_image)
+            
+            if len(encodings) > 0:
+                KNOWN_FACE_CACHE[user_id] = encodings[0]
+                print(f"✅ [DEBUG] Loaded profile encoding for User {user_id}")
+            else:
+                print(f"⚠️ [DEBUG] No face found in profile picture for User {user_id}")
+                return None
+        except Exception as e:
+            print(f"❌ [DEBUG] Error loading profile pic: {e}")
+            return None
 
-    return is_alert, total_score
+    known_encoding = KNOWN_FACE_CACHE.get(user_id)
+    if known_encoding is None:
+        return None
+    
+    # 2. Get Live Face
+    # Uses HOG model. If this returns empty, lighting or angle is bad.
+    face_locations = face_recognition.face_locations(rgb_frame)
+    if not face_locations:
+        # print("⚠️ [DEBUG] No face detected in live frame") 
+        return None
+
+    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+    # 3. Compare
+    for face_encoding in face_encodings:
+        # tolerance=0.50 (Strict) -> Lower means stricter matching
+        # matches returns [True] or [False]
+        matches = face_recognition.compare_faces([known_encoding], face_encoding, tolerance=0.5)
+        
+        # Calculate distance (for debugging precision)
+        face_dist = face_recognition.face_distance([known_encoding], face_encoding)[0]
+
+        if True in matches:
+            # print(f"✅ [DEBUG] Match Confirmed (Dist: {round(face_dist, 2)})")
+            return True 
+        else:
+            print(f"🚨 [DEBUG] IMPERSONATION! Match Failed (Dist: {round(face_dist, 2)})")
+
+    return False # Face Detected, but NOT the student
 
 # ==============================================================================
-# DETECTION PIPELINE
+# 2. GAZE DETECTION
+# ==============================================================================
+def detect_suspicious_gaze(rgb_frame):
+    landmarks_list = face_recognition.face_landmarks(rgb_frame)
+    if not landmarks_list:
+        return False
+
+    try:
+        landmarks = landmarks_list[0]
+        left_jaw = landmarks['chin'][0]
+        right_jaw = landmarks['chin'][16]
+        nose_tip = landmarks['nose_tip'][0]
+
+        dist_to_left = abs(nose_tip[0] - left_jaw[0])
+        dist_to_right = abs(nose_tip[0] - right_jaw[0])
+
+        if dist_to_right == 0: dist_to_right = 0.001
+        if dist_to_left == 0: dist_to_left = 0.001
+
+        ratio = dist_to_left / dist_to_right
+
+        if ratio > 2.5 or ratio < 0.4:
+            return True 
+    except Exception:
+        pass
+    return False
+
+# ==============================================================================
+# 3. INSTANT TRIGGER LOGIC
+# ==============================================================================
+def check_instant_trigger(frame_score):
+    return frame_score > 0
+
+# ==============================================================================
+# MAIN PIPELINE
 # ==============================================================================
 def detect_faces_and_movements(img, user_id, exam_id):
     yolo = load_model()
     
-    # Run Inference
+    # 1. YOLO Object Detection
     results = yolo(img, verbose=False)[0]
-    boxes = results.boxes
-
-    # Frame Analysis
+    
     person_count = 0
     phone_detected = False
-    
-    # Analyze detections
-    if boxes:
-        for box in boxes:
+    book_detected = False
+
+    if results.boxes:
+        for box in results.boxes:
             cls_id = int(box.cls[0])
             conf = float(box.conf[0])
-
-            # Class 0 = Person
-            if cls_id == 0 and conf > 0.5:
-                person_count += 1
             
-            # Class 67 = Cell Phone
-            if cls_id == 67 and conf > 0.4:
-                phone_detected = True
+            if conf > 0.5:
+                if cls_id == 0: person_count += 1
+                elif cls_id == 67: phone_detected = True
+                elif cls_id == 73: book_detected = True
 
-    # Calculate Score for THIS specific frame
+    # 2. Score Calculation
     current_frame_score = 0
-    primary_reason = "normal"
+    reasons = []
 
     if person_count == 0:
-        current_frame_score += THREAT_WEIGHTS["person_absent"]
-        primary_reason = "person_absent"
+        current_frame_score += THREAT_WEIGHTS["Person Absent"]
+        reasons.append("Person Absent")
     elif person_count > 1:
-        current_frame_score += THREAT_WEIGHTS["multiple_persons"]
-        primary_reason = "multiple_persons"
+        current_frame_score += THREAT_WEIGHTS["Multiple Persons"]
+        reasons.append("Multiple Persons")
     
     if phone_detected:
-        current_frame_score += THREAT_WEIGHTS["cell_phone"]
-        primary_reason = "cell_phone_detected" # Higher priority
+        current_frame_score += THREAT_WEIGHTS["Mobile Phone Detected"]
+        reasons.append("Mobile Phone Detected")
 
-    # Update Sliding Window & Check Threshold
-    alert_triggered, total_score = update_threat_score(user_id, exam_id, current_frame_score)
+    if book_detected:
+        current_frame_score += THREAT_WEIGHTS["Book Detected"]
+        reasons.append("Book Detected")
+
+    # 3. Biometric Checks
+    if person_count == 1:
+        # ✅ FIXED: INCREASED SIZE FOR BETTER ACCURACY
+        # Changed from 0.25 (too small) to 0.5 (better).
+        # If still failing, change to 1.0 (Full Size, Slower).
+        small_frame = cv2.resize(img, (0, 0), fx=0.50, fy=0.50)
+        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+
+        # A. Identity Verification
+        is_authenticated = verify_identity(rgb_small_frame, user_id)
+        
+        if is_authenticated is False:
+            current_frame_score += THREAT_WEIGHTS["Impersonation Detected"]
+            reasons.append("Impersonation Detected")
+        
+        elif is_authenticated is None:
+            # Face library failed to find face, even though YOLO found a body
+            # This usually means face is hidden, mask, or bad angle
+            # We treat this as a minor warning, NOT valid authentication
+            current_frame_score += THREAT_WEIGHTS["Face Not Visible"]
+            reasons.append("Face Not Visible")
+
+        elif is_authenticated is True:
+            # Only check gaze if it IS the correct student
+            is_looking_away = detect_suspicious_gaze(rgb_small_frame)
+            if is_looking_away:
+                current_frame_score += THREAT_WEIGHTS["Looking Away"]
+                reasons.append("Looking Away")
+
+    # 4. Instant Trigger
+    alert_triggered = check_instant_trigger(current_frame_score)
 
     logs = []
     
-    # ✅ SAVE TO DB ONLY IF THRESHOLD CROSSED
     if alert_triggered:
         ts = datetime.now()
         filename = f"{user_id}_{exam_id}_{ts.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
         path = os.path.join(FRAME_SAVE_PATH, filename)
         
-        # Draw Score on Image for Evidence
-        cv2.putText(img, f"Threat Score: {total_score}/{THREAT_THRESHOLD}", (20, 50), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(img, f"Reason: {primary_reason}", (20, 90), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        primary_reason = reasons[0] if reasons else "Suspicious Behavior"
+        if "Impersonation Detected" in reasons: primary_reason = "Impersonation Detected"
+        elif "Mobile Phone Detected" in reasons: primary_reason = "Mobile Phone Detected"
+        elif "Book Detected" in reasons: primary_reason = "Book Detected"
+
+        # Annotate
+        cv2.putText(img, f"Threat: {primary_reason}", (20, 40), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
         cv2.imwrite(path, img)
 
@@ -182,11 +243,11 @@ def detect_faces_and_movements(img, user_id, exam_id):
             "movement_type": primary_reason,
             "timestamp": ts,
             "frame_image_path": f"frames/{filename}",
-            "confidence": total_score,   # Using confidence field to store Threat Score
+            "confidence": current_frame_score,
             "person_count": person_count
         })
         
-        logger.warning(f"🚨 ALERT | User: {user_id} | Score: {total_score} | Reason: {primary_reason}")
+        logger.warning(f"🚨 ALERT | User: {user_id} | Reason: {reasons}")
 
     return img, logs
 
@@ -212,10 +273,9 @@ async def process_frame(
 
         _, logs = detect_faces_and_movements(img, user_id, exam_id)
 
-        # Save Alerts to DB
         for log in logs:
             db.execute(text("""
-                INSERT INTO dbo.Movements
+                INSERT INTO dbo.Movements 
                 (user_id, exam_id, movement_type, timestamp, frame_image_path)
                 VALUES (:u, :e, :t, :ts, :p)
             """), {
@@ -243,6 +303,6 @@ async def process_frame(
 async def video_health():
     try:
         load_model()
-        return {"status": "healthy", "mode": "weighted_scoring_yolo_only"}
+        return {"status": "healthy", "mode": "impersonation_fixed"}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}

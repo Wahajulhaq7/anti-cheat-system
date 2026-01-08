@@ -460,3 +460,25 @@ async def get_exam(exam_id: int, db: Session = Depends(get_db), current_user=Dep
     if not row:
         raise HTTPException(status_code=404, detail="Exam not found")
     return dict(row._mapping)
+
+# ✅ NEW: GET TOTAL EXAM COUNT (ALL EXAMS)
+@router.get("/count/all")
+async def get_total_exam_count(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Returns the total number of exams created by ALL users.
+    Only accessible to admins (and invigilators if needed).
+    """
+    if current_user["role"] not in ["admin", "invigilator"]:
+         raise HTTPException(status_code=403, detail="Not authorized")
+
+    try:
+        # Count ALL exams
+        count = db.execute(text("SELECT COUNT(*) FROM dbo.Exams")).scalar()
+        return {"count": count}
+
+    except Exception as e:
+        print(f"Error counting exams: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch exam count")

@@ -136,6 +136,7 @@ Thumbs.db
 
 # Project specific
 uploaded_reports/
+uploads/profiles/
 uploads/frames/
 uploads/*.jpg
 uploads/*.png

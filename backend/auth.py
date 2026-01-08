@@ -8,6 +8,8 @@ from .models import UserCreate, UserLogin, UserUpdate
 from .utils import hash_password, verify_password, create_access_token
 import os
 from jose import jwt, JWTError
+import shutil
+from fastapi import File, UploadFile
 
 router = APIRouter(tags=["Auth"])
 security = HTTPBearer()
@@ -234,3 +236,57 @@ async def get_user_by_id(
         raise HTTPException(status_code=404, detail="User not found")
 
     return {"id": row.id, "username": row.username, "role": row.role}
+
+# backend/auth.py
+
+# ... (keep existing imports and code) ...
+
+# ✅ NEW: GET TOTAL USER COUNT (ALL ROLES)
+@router.get("/users/count/all")
+async def get_total_user_count(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user) 
+):
+    """
+    Returns the total number of ALL registered users (admin + student + invigilator).
+    """
+    # Security check: only allow admins or invigilators
+    if current_user["role"] not in ["admin", "invigilator"]:
+         raise HTTPException(status_code=403, detail="Not authorized")
+
+    try:
+        # Count ALL users in the table
+        count = db.execute(text("SELECT COUNT(*) FROM Users")).scalar()
+        return {"count": count}
+
+    except Exception as e:
+        print(f"Error counting users: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch user count")
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+PROFILE_PICS_PATH = os.path.join(BASE_DIR, "uploads", "profiles")
+os.makedirs(PROFILE_PICS_PATH, exist_ok=True)
+
+@router.post("/register-face")
+async def register_face(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Receives a webcam capture and saves it as the user's reference face ID.
+    Filename format: {user_id}.jpg
+    """
+    user_id = current_user["id"]
+    file_location = os.path.join(PROFILE_PICS_PATH, f"{user_id}.jpg")
+    
+    try:
+        # Save the uploaded file overwriting any existing one
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        print(f"✅ Face registered for User {user_id} at {file_location}")
+        return {"status": "success", "message": "Face registered successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save face image: {str(e)}")

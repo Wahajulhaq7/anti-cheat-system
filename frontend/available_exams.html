@@ -10,7 +10,7 @@
   <style>
     /* --- NAVBAR & LAYOUT STYLES --- */
     body {
-        background-color: #1a1f36; /* Dark Background */
+        background-color: #1a1f36;
         color: #ffffff;
         margin: 0;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -42,7 +42,6 @@
         gap: 15px;
     }
 
-    /* Nav Button */
     .btn-nav {
         background: transparent;
         color: #a0aec0;
@@ -63,7 +62,6 @@
         background-color: rgba(255, 255, 255, 0.1);
     }
 
-    /* User Menu */
     .user-menu {
         display: flex;
         align-items: center;
@@ -82,9 +80,8 @@
         gap: 8px;
     }
 
-    /* --- LOGOUT BUTTON (Red) --- */
     .btn-logout {
-        background-color: #ef4444; /* Red */
+        background-color: #ef4444;
         color: white;
         border: none;
         padding: 8px 16px;
@@ -102,7 +99,6 @@
         background-color: #dc2626;
     }
 
-    /* --- CONTAINER & CARDS --- */
     .container {
         padding: 40px;
         max-width: 1200px;
@@ -119,6 +115,40 @@
         gap: 10px;
     }
 
+    /* Exam Grid Styling */
+    .exam-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .exam-card {
+        background-color: #1e253f;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid #2d3748;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .exam-card h3 { margin: 0 0 10px 0; color: #fff; }
+    .exam-card p { margin: 0; color: #a0aec0; font-size: 14px; }
+
+    .btn-start {
+        margin-top: 15px;
+        background-color: #5840d8;
+        color: white;
+        border: none;
+        padding: 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+    .btn-start:hover { background-color: #4c35de; }
+
     /* --- MODAL STYLES --- */
     .modal { 
         display: none; 
@@ -128,7 +158,7 @@
         top: 0; 
         width: 100%; 
         height: 100%; 
-        background-color: rgba(0,0,0,0.6); 
+        background-color: rgba(0,0,0,0.7); 
         justify-content: center; 
         align-items: center; 
         backdrop-filter: blur(3px); 
@@ -139,7 +169,7 @@
         margin: auto; 
         padding: 0; 
         border-radius: 8px; 
-        width: 400px; 
+        width: 450px; 
         text-align: center; 
         position: relative; 
         overflow: hidden; 
@@ -150,83 +180,66 @@
     .card-header-modal { 
         background: #5840d8; 
         color: white; 
-        padding: 20px; 
+        padding: 15px; 
         display: flex; 
         justify-content: center; 
         align-items: center; 
         width: 100%; 
     }
     
-    .card-header-modal h3 { 
-        margin: 0; 
-        font-size: 18px; 
-        font-weight: 600; 
-        display: flex; 
-        align-items: center; 
-        gap: 10px; 
-    }
+    .card-header-modal h3 { margin: 0; font-size: 18px; font-weight: 600; }
     
     .modal-body { 
-        padding: 25px; 
+        padding: 20px; 
         width: 100%; 
         background: #fff; 
         display: flex; 
         flex-direction: column; 
         align-items: center; 
+        box-sizing: border-box;
     }
     
-    .modal-body p { 
-        color: #4a5568; 
-        font-size: 16px; 
-        margin-bottom: 25px; 
-        text-align: center; 
-        width: 100%; 
+    /* --- CAMERA CHECK STYLES --- */
+    #cameraPreview {
+        width: 100%;
+        height: 240px;
+        background-color: #000;
+        border-radius: 6px;
+        object-fit: cover;
+        margin: 15px 0;
+        border: 2px solid #e2e8f0;
     }
-    
+
+    .check-status {
+        font-size: 14px;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+    .status-waiting { color: #d69e2e; }
+    .status-success { color: #38a169; }
+    .status-error { color: #e53e3e; }
+
     .modal-actions { 
         display: flex; 
         justify-content: center; 
-        align-items: center; 
         gap: 15px; 
         width: 100%; 
         margin-top: 10px; 
     }
     
-    .btn-confirm-logout { 
+    .btn-confirm-logout, .btn-proceed { 
         background-color: #5840d8; 
-        color: white; 
-        border: none; 
-        padding: 0; 
-        border-radius: 6px; 
-        cursor: pointer; 
-        width: 130px; 
-        height: 40px; 
-        font-weight: 600; 
-        font-size: 14px; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        transition: background 0.2s; 
+        color: white; border: none; padding: 0; border-radius: 6px; 
+        cursor: pointer; width: 130px; height: 40px; font-weight: 600; 
+        display: flex; justify-content: center; align-items: center; 
     }
-    .btn-confirm-logout:hover { background-color: #4c35de; }
-
+    .btn-proceed:disabled { background-color: #a0aec0; cursor: not-allowed; }
+    
     .btn-cancel { 
-        background-color: #6c757d; 
-        color: white; 
-        border: none; 
-        padding: 0; 
-        border-radius: 6px; 
-        cursor: pointer; 
-        width: 130px; 
-        height: 40px; 
-        font-weight: 600; 
-        font-size: 14px; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        transition: background 0.2s; 
+        background-color: #6c757d; color: white; border: none; padding: 0; 
+        border-radius: 6px; cursor: pointer; width: 130px; height: 40px; 
+        font-weight: 600; display: flex; justify-content: center; align-items: center; 
     }
-    .btn-cancel:hover { background-color: #5a6268; }
   </style>
 </head>
 <body>
@@ -249,7 +262,7 @@
 
   <div class="container">
     <h2><i class="fa-solid fa-layer-group"></i> Choose an Exam</h2>
-    <div id="exam-list">
+    <div id="exam-list" class="exam-grid">
       <p style="color:#a0aec0; font-style:italic;">Loading exams...</p>
     </div>
   </div>
@@ -260,10 +273,37 @@
         <h3><i class="fa-solid fa-right-from-bracket"></i> Confirm Logout</h3>
       </div>
       <div class="modal-body">
-        <p>Are you sure you want to log out?</p>
+        <p style="color: #4a5568;">Are you sure you want to log out?</p>
         <div class="modal-actions">
           <button onclick="confirmLogout()" class="btn-confirm-logout">Yes, Logout</button>
           <button onclick="closeLogoutModal()" class="btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cameraModal" class="modal">
+    <div class="modal-content">
+      <div class="card-header-modal">
+        <h3><i class="fa-solid fa-video"></i> System Check</h3>
+      </div>
+      <div class="modal-body">
+        <p style="color:#4a5568; font-size: 14px;">
+            Camera permission is required to start the exam. <br>
+            Please allow access when prompted.
+        </p>
+        
+        <video id="cameraPreview" autoplay muted playsinline></video>
+        
+        <div id="cameraStatus" class="check-status status-waiting">
+            <i class="fa-solid fa-spinner fa-spin"></i> Checking camera...
+        </div>
+
+        <div class="modal-actions">
+          <button id="btnStartExam" onclick="proceedToExam()" class="btn-proceed" disabled>
+            Start Exam
+          </button>
+          <button onclick="closeCameraModal()" class="btn-cancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -285,7 +325,10 @@
     // Close modal on outside click
     window.onclick = function(event) {
       const logoutModal = document.getElementById('logoutModal');
+      const cameraModal = document.getElementById('cameraModal');
       if (event.target == logoutModal) closeLogoutModal();
+      // Note: We usually don't want the camera modal to close by clicking outside accidentally
+      if (event.target == cameraModal) closeCameraModal(); 
     }
   </script>
   

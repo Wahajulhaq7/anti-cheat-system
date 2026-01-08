@@ -18,6 +18,7 @@ function logout() {
 // Load all users on page load
 window.onload = () => {
   loadUsers();
+  loadDashboardStats(); // <--- Load Analytics
 };
 
 // Toggle password visibility
@@ -32,6 +33,48 @@ function togglePassword(fieldId) {
     field.type = "password";
     button.textContent = "👁️";
   }
+}
+
+// --- NEW: Load Dashboard Analytics ---
+async function loadDashboardStats() {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+        // 1. Fetch Total Users (All Roles) - ✅ Using new endpoint
+        const usersRes = await fetch("http://localhost:8000/auth/users/count/all", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        if (usersRes.ok) {
+            const data = await usersRes.json();
+            const el = document.getElementById("totalUsersCount"); 
+            if (el) el.textContent = data.count;
+        }
+
+        // 2. Fetch Total Exams Created - ✅ Using new endpoint
+        const examsRes = await fetch("http://localhost:8000/exam/count/all", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (examsRes.ok) {
+            const data = await examsRes.json();
+            const el = document.getElementById("totalExamsCount");
+            if (el) el.textContent = data.count;
+        }
+
+        // 3. Fetch Suspicious Activities
+        const susRes = await fetch("http://localhost:8000/monitor/suspicious-images/count", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (susRes.ok) {
+            const data = await susRes.json();
+            const el = document.getElementById("suspiciousCount");
+            if (el) el.textContent = data.count;
+        }
+
+    } catch (err) {
+        console.error("Failed to load dashboard stats:", err);
+    }
 }
 
 // Fetch and display all users

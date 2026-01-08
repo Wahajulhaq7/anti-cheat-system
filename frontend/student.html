@@ -203,6 +203,19 @@
         transition: background 0.2s; 
     }
     .btn-cancel:hover { background-color: #5a6268; }
+
+    /* New Button Style for Face Auth */
+    .btn-face-auth {
+        background-color: #2b6cb0; /* Blue */
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+    .btn-face-auth:hover { background-color: #2c5282; }
   </style>
 </head>
 <body>
@@ -225,8 +238,11 @@
 
   <div class="container">
     <div class="content-card">
-      <div class="header-row">
+      <div class="header-row" style="display: flex; justify-content: space-between; align-items: center;">
         <h2><i class="fa-solid fa-file-signature"></i> Exam History</h2>
+        <button onclick="openFaceModal()" class="btn-face-auth">
+            <i class="fa-solid fa-face-viewfinder"></i> Register Face ID
+        </button>
       </div>
 
       <div class="table-container">
@@ -263,6 +279,31 @@
     </div>
   </div>
 
+  <div id="faceModal" class="modal">
+    <div class="modal-content">
+      <div class="card-header-modal">
+        <h3><i class="fa-solid fa-user-lock"></i> Register Face ID</h3>
+      </div>
+      <div class="modal-body">
+        <p style="color:#4a5568; font-size: 14px;">
+            Position your face clearly in the frame and click "Capture".
+            <br>This image will be used to verify your identity during exams.Remove any obstructions like glasses or hats!!
+        </p>
+        
+        <video id="facePreview" autoplay muted playsinline style="width: 100%; border-radius: 6px; border: 2px solid #5840d8;"></video>
+        
+        <canvas id="captureCanvas" style="display: none;"></canvas>
+
+        <div class="modal-actions">
+          <button id="btnCapture" onclick="captureAndRegister()" class="btn-confirm-logout">
+            <i class="fa-solid fa-camera"></i> Capture
+          </button>
+          <button onclick="closeFaceModal()" class="btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/student.js"></script>
   <script>
     // --- Navbar Username Logic ---
@@ -275,10 +316,12 @@
     function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
     function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-    // Close modal on outside click
+    // --- Close modal on outside click (Updated for Face Modal) ---
     window.onclick = function(event) {
       const logoutModal = document.getElementById('logoutModal');
+      const faceModal = document.getElementById('faceModal'); 
       if (event.target == logoutModal) closeLogoutModal();
+      if (event.target == faceModal) closeFaceModal();
     }
   </script>
 </body>
