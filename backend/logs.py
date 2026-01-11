@@ -100,20 +100,23 @@ def get_student_results(
         SELECT 
             e.id AS exam_id,
             e.title AS exam_title,
-            COUNT(sa.id) AS total_answered,
-            SUM(CASE WHEN sa.selected_option = m.correct_option THEN 1 ELSE 0 END) AS correct_count,
-            COUNT(DISTINCT mv.id) AS movement_count
+            -- Total questions in this exam
+            (SELECT COUNT(*) FROM MCQs WHERE exam_id = e.id) AS total_answered,
+            -- Correct answers by student
+            (SELECT COUNT(*) 
+             FROM StudentAnswers sa
+             JOIN MCQs m ON sa.question_id = m.id
+             WHERE sa.user_id = :uid AND sa.exam_id = e.id AND sa.selected_option = m.correct_option
+            ) AS correct_count,
+            -- Movements during this exam
+            (SELECT COUNT(*) 
+             FROM Movements mv 
+             WHERE mv.user_id = :uid AND mv.exam_id = e.id
+            ) AS movement_count
         FROM Exams e
-        LEFT JOIN StudentAnswers sa 
-            ON sa.exam_id = e.id AND sa.user_id = :uid
-        LEFT JOIN MCQs m 
-            ON sa.question_id = m.id
-        LEFT JOIN Movements mv 
-            ON mv.exam_id = e.id AND mv.user_id = :uid
         WHERE e.id IN (
             SELECT DISTINCT exam_id FROM StudentAnswers WHERE user_id = :uid
         )
-        GROUP BY e.id, e.title
         ORDER BY e.id DESC
     """)
     rows = db.execute(query, {"uid": user_id}).fetchall()

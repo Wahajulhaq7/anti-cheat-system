@@ -8,7 +8,51 @@
   <link rel="stylesheet" href="css/invigilator.css" /> 
   <link rel="stylesheet" href="css/students.css" /> 
   <style>
-    /* Ensure modal styles are present if not in CSS file */
+    /* --- SEARCH BAR CSS --- */
+    .search-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 25px;
+        position: relative;
+        width: 100%;
+    }
+
+    .search-wrapper {
+        position: relative;
+        width: 50%; /* Adjust width as needed */
+        max-width: 500px;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #a0aec0;
+    }
+
+    #searchInput {
+        width: 100%;
+        padding: 12px 20px 12px 45px; /* Left padding for icon */
+        border-radius: 25px;
+        border: 1px solid #4a5568;
+        background-color: #1a202c; /* Darker background for input */
+        color: #e2e8f0;
+        font-size: 15px;
+        outline: none;
+        transition: all 0.3s ease;
+    }
+
+    #searchInput:focus {
+        border-color: #5840d8;
+        box-shadow: 0 0 0 3px rgba(88, 64, 216, 0.3);
+    }
+
+    #searchInput::placeholder {
+        color: #718096;
+    }
+
+    /* --- Modal & Button CSS (Existing) --- */
     .modal { 
         display: none; 
         position: fixed; 
@@ -74,43 +118,40 @@
         width: 100%; 
         margin-top: 10px; 
     }
-    
-    /* --- Fixed Button CSS for Perfect Centering --- */
     .btn-confirm-logout { 
         background-color: #5840d8; 
         color: white; 
         border: none; 
-        padding: 0; /* Remove padding to rely on flex centering */
+        padding: 0; 
         border-radius: 6px; 
         cursor: pointer; 
         width: 130px; 
         height: 40px; 
         font-weight: 600; 
         font-size: 14px;
-        display: flex; /* Key for centering */
-        justify-content: center; /* Horizontal Center */
-        align-items: center; /* Vertical Center */
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
         text-align: center;
-        transition: background 0.2s;
+        transition: background 0.2s; 
     }
     .btn-confirm-logout:hover { background-color: #4c35de; }
-
     .btn-cancel { 
         background-color: #6c757d; 
         color: white; 
         border: none; 
-        padding: 0; /* Remove padding to rely on flex centering */
+        padding: 0; 
         border-radius: 6px; 
         cursor: pointer; 
         width: 130px; 
         height: 40px; 
         font-weight: 600; 
         font-size: 14px;
-        display: flex; /* Key for centering */
-        justify-content: center; /* Horizontal Center */
-        align-items: center; /* Vertical Center */
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
         text-align: center;
-        transition: background 0.2s;
+        transition: background 0.2s; 
     }
     .btn-cancel:hover { background-color: #5a6268; }
   </style>
@@ -154,6 +195,13 @@
     <div class="header-row">
       <h2><i class="fa-solid fa-user-graduate"></i> Registered Students</h2>
       <p>Total: <strong id="totalStudents">0</strong></p>
+    </div>
+
+    <div class="search-container">
+        <div class="search-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Search by ID or Username..." onkeyup="filterStudents()">
+        </div>
     </div>
 
     <table id="studentsTable" class="students-table">

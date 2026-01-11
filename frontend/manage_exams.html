@@ -7,6 +7,50 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/invigilator.css" />
   <style>
+    /* --- SEARCH BAR CSS --- */
+    .search-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 25px;
+        position: relative;
+        width: 100%;
+    }
+
+    .search-wrapper {
+        position: relative;
+        width: 50%; /* Adjust width as needed */
+        max-width: 500px;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #a0aec0;
+    }
+
+    #searchInput {
+        width: 100%;
+        padding: 12px 20px 12px 45px; /* Left padding for icon */
+        border-radius: 25px;
+        border: 1px solid #4a5568;
+        background-color: #1a202c; /* Darker background for input */
+        color: #e2e8f0;
+        font-size: 15px;
+        outline: none;
+        transition: all 0.3s ease;
+    }
+
+    #searchInput:focus {
+        border-color: #5840d8;
+        box-shadow: 0 0 0 3px rgba(88, 64, 216, 0.3);
+    }
+
+    #searchInput::placeholder {
+        color: #718096;
+    }
+
     /* --- MODAL STYLES (Consistent) --- */
     .modal { 
         display: none; 
@@ -153,19 +197,19 @@
 
     .btn-ok {
         background-color: #28a745; 
-        color: white;
-        border: none;
-        padding: 0;
-        border-radius: 6px;
-        cursor: pointer;
-        width: 130px;
-        height: 40px;
-        font-weight: 600;
-        font-size: 14px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        transition: background 0.2s;
+        color: white; 
+        border: none; 
+        padding: 0; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        width: 130px; 
+        height: 40px; 
+        font-weight: 600; 
+        font-size: 14px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        transition: background 0.2s; 
     }
     .btn-ok:hover { background-color: #218838; }
   </style>
@@ -206,6 +250,14 @@
 <div class="dashboard-container">
   <section class="exam-section">
     <h2><i class="fa-solid fa-layer-group"></i> My Created Exams</h2>
+    
+    <div class="search-container">
+        <div class="search-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Search exams by title..." onkeyup="filterExams()">
+        </div>
+    </div>
+
     <div id="examsList" class="exam-list">
       <p class="placeholder"><i class="fa-solid fa-spinner fa-spin"></i> Loading exams...</p>
     </div>
@@ -259,7 +311,8 @@
 
 <script>
 const API_BASE = "http://localhost:8000"; 
-let examToDeleteId = null; // Store ID for deletion
+let examToDeleteId = null; 
+let allExams = []; // ✅ Store all exams globally for search
 
 window.onload = async () => {
   const token = localStorage.getItem('token');
@@ -271,7 +324,6 @@ window.onload = async () => {
     return;
   }
 
-  // Update username text (keep the icon)
   const userSpan = document.getElementById('username');
   if(userSpan) userSpan.innerHTML = `<i class="fa-solid fa-user"></i> ${username}`;
   
@@ -294,7 +346,7 @@ function closeDeleteModal() {
     examToDeleteId = null;
 }
 
-// --- ✅ Success Modal Logic ---
+// --- Success Modal Logic ---
 function openSuccessModal(message) {
     if(message) document.getElementById('successMessage').textContent = message;
     document.getElementById('successModal').style.display = 'flex';
@@ -324,7 +376,29 @@ async function loadMyExams() {
 
     if (!res.ok) throw new Error('Failed to fetch your exams');
 
-    const exams = await res.json();
+    allExams = await res.json(); // ✅ Store globally
+    renderExams(allExams); // ✅ Initial Render
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('examsList').innerHTML = '<p class="placeholder">Error loading exams</p>';
+  }
+}
+
+// ✅ Search Function
+function filterExams() {
+    const query = document.getElementById("searchInput").value.toLowerCase();
+    
+    const filtered = allExams.filter(exam => 
+        exam.title.toLowerCase().includes(query) || 
+        (exam.description && exam.description.toLowerCase().includes(query))
+    );
+
+    renderExams(filtered);
+}
+
+// ✅ Render Helper Function
+function renderExams(exams) {
     const list = document.getElementById('examsList');
     list.innerHTML = '';
 
@@ -344,18 +418,13 @@ async function loadMyExams() {
           <p class="meta"><i class="fa-regular fa-clock"></i> Created: ${createdAt}</p>
         </div>
         <div class="exam-actions">
-           <button onclick="openDeleteModal(${exam.id})" class="btn-delete">
+            <button onclick="openDeleteModal(${exam.id})" class="btn-delete">
             <i class="fa-solid fa-trash"></i> Delete
           </button>
         </div>
       `;
       list.appendChild(div);
     });
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById('examsList').innerHTML = '<p class="placeholder">Error loading exams</p>';
-  }
 }
 
 async function confirmDelete() {
@@ -373,12 +442,11 @@ async function confirmDelete() {
       throw new Error(errData.detail || 'Failed to delete exam');
     }
 
-    closeDeleteModal(); // Close delete modal first
+    closeDeleteModal(); 
     
-    // ✅ Trigger Success Modal
     openSuccessModal("Exam deleted successfully.");
     
-    await loadMyExams(); // Refresh list
+    await loadMyExams(); 
 
   } catch (err) {
     console.error(err);

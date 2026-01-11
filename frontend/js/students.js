@@ -1,5 +1,7 @@
 // frontend/js/students.js
 
+let allStudents = []; // Store students globally for search
+
 // Check auth and role
 function checkAuth() {
     const token = localStorage.getItem("token");
@@ -27,34 +29,52 @@ async function loadStudents() {
         }
 
         const users = await res.json();
-        const students = users.filter(user => user.role === "student");
-        const tbody = document.querySelector("#studentsTable tbody");
-        tbody.innerHTML = "";
+        // Filter only students
+        allStudents = users.filter(user => user.role === "student");
+        
+        // Initial Render
+        renderTable(allStudents);
 
-        document.getElementById("totalStudents").textContent = students.length;
-
-        if (students.length === 0) {
-            // Updated colspan to 3 (ID, Username, Role)
-            tbody.innerHTML = '<tr><td colspan="3" class="placeholder">No students found</td></tr>';
-            return;
-        }
-
-        students.forEach(student => {
-            const tr = document.createElement("tr");
-            // Updated rows: Removed the Action/Delete column
-            tr.innerHTML = `
-                <td>${student.id}</td>
-                <td>${student.username}</td>
-                <td>${student.role}</td>
-            `;
-            tbody.appendChild(tr);
-        });
     } catch (err) {
         console.error("Load students error:", err);
-        // Updated colspan to 3
         document.querySelector("#studentsTable tbody").innerHTML = 
             '<tr><td colspan="3" class="placeholder">Failed to load students</td></tr>';
     }
+}
+
+// ✅ Search Function
+function filterStudents() {
+    const query = document.getElementById("searchInput").value.toLowerCase();
+    
+    const filtered = allStudents.filter(student => 
+        student.username.toLowerCase().includes(query) || 
+        student.id.toString().includes(query)
+    );
+
+    renderTable(filtered);
+}
+
+// ✅ Render Table Helper
+function renderTable(data) {
+    const tbody = document.querySelector("#studentsTable tbody");
+    tbody.innerHTML = "";
+
+    document.getElementById("totalStudents").textContent = data.length;
+
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="placeholder">No students found</td></tr>';
+        return;
+    }
+
+    data.forEach(student => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${student.id}</td>
+            <td>${student.username}</td>
+            <td>${student.role}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 // Navigate back to invigilator dashboard

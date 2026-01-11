@@ -2,7 +2,7 @@ const API_BASE = "http://localhost:8000";
 let detectionInterval = null; 
 let isViolationProcessing = false; 
 let timerInterval = null; 
-let isRedirecting = false; // ✅ New flag to control navigation warnings
+let isRedirecting = false; 
 
 // Global function exposure
 window.openSubmitModal = openSubmitModal;
@@ -30,7 +30,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if (!token || !user_id || !exam_id) {
     alert("Missing exam session. Please login and start an exam.");
-    isRedirecting = true; // Allow redirect without warning
+    isRedirecting = true; 
     window.location.replace("available_exams.html");
     return;
   }
@@ -82,7 +82,6 @@ async function initExamTimer(exam_id, token) {
         let endTime;
 
         if (exam.student_start_time) {
-            // Force UTC parsing
             const startTimeStr = exam.student_start_time.endsWith("Z") 
                 ? exam.student_start_time 
                 : exam.student_start_time + "Z";
@@ -122,7 +121,8 @@ function updateTimerDisplay(endTime, exam_id, token) {
             const modal = document.getElementById("timeoutModal");
             if (modal) modal.style.display = "flex";
 
-            submitAnswers(exam_id, token, true); 
+            // Time's Up -> Delayed redirect so user sees modal
+            submitAnswers(exam_id, token, true, false); 
         }
         return;
     }
@@ -150,7 +150,9 @@ async function handleViolation(type, exam_id, token) {
   isViolationProcessing = true; 
   console.warn(`🚨 VIOLATION DETECTED: ${type}`);
   reportViolation(type);
-  await submitAnswers(exam_id, token, true);
+  
+  // ✅ IMMEDIATE SUBMISSION (No delay for violations)
+  await submitAnswers(exam_id, token, true, true);
 }
 
 // --- LOAD QUESTIONS ---
@@ -223,7 +225,8 @@ function closeSubmitModal() {
 }
 
 // --- SUBMIT ANSWERS ---
-async function submitAnswers(exam_id, token, isAutoSubmit = false) {
+// ✅ Added isImmediate param
+async function submitAnswers(exam_id, token, isAutoSubmit = false, isImmediate = false) {
   if (timerInterval) clearInterval(timerInterval);
   localStorage.removeItem(`exam_end_time_${exam_id}`);
 
@@ -245,9 +248,16 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
 
   const handleAutoSubmitRedirect = () => {
       isRedirecting = true; // ✅ Allow redirect
-      setTimeout(() => {
+      
+      // ✅ IF IMMEDIATE (Violation), Redirect ASAP
+      if (isImmediate) {
           window.location.replace("student.html");
-      }, 6000); 
+      } else {
+          // ✅ IF TIMER EXPIRED, Delay 6s for Modal
+          setTimeout(() => {
+              window.location.replace("student.html");
+          }, 6000); 
+      }
   };
 
   try {
@@ -265,7 +275,7 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
     if (!res.ok) {
       if (!isAutoSubmit) {
          if (responseText.includes("already submitted")) {
-            isRedirecting = true; // ✅ Allow redirect
+            isRedirecting = true; 
             window.location.replace("student.html");
             return; 
          }
@@ -278,7 +288,7 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
 
     if (!isAutoSubmit) {
       alert("🎉 Your exam has been submitted successfully!");
-      isRedirecting = true; // ✅ Allow redirect
+      isRedirecting = true; 
       window.location.replace("student.html");
     } else {
       handleAutoSubmitRedirect();

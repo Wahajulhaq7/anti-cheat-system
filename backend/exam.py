@@ -953,3 +953,4 @@ async def get_total_exam_count(
     except Exception as e:
         print(f"Error counting exams: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch exam count")
+    
