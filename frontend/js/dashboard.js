@@ -243,3 +243,23 @@ async function proceedCleanup() {
         }
     }
 }
+
+// ✅ NEW SEARCH FUNCTION
+function searchUsers() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toLowerCase();
+    const table = document.getElementById("usersTable");
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // Start at 1 to skip header
+        const td = tr[i].getElementsByTagName("td")[1]; // Column index 1 is Username
+        if (td) {
+            const txtValue = td.textContent || td.innerText;
+            if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}

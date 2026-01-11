@@ -192,11 +192,20 @@
     </div>
 
     <div class="table-container">
-      <div class="table-header"><h3><i class="fa-solid fa-list"></i> Student Reports</h3></div>
+      <div class="table-header" style="position: relative; display: flex; align-items: center; justify-content: flex-start; margin-bottom: 15px; height: 40px;">
+        <h3><i class="fa-solid fa-list"></i> Student Reports</h3>
+        
+        <div class="search-container" style="position: absolute; left: 50%; transform: translateX(-50%); width: 300px;">
+            <input type="text" id="searchInput" onkeyup="searchReports()" placeholder="Search by Student or Exam..." 
+                   style="width: 100%; padding: 10px 35px 10px 15px; border-radius: 6px; border: 1px solid #cbd5e0; outline: none;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #a0aec0;"></i>
+        </div>
+      </div>
+
       <table id="reportsTable">
         <thead>
           <tr>
-            <th>Student ID</th><th>Student Name</th><th>Exam ID</th><th>Exam Title</th>
+            <th>Student ID</th><th>Student</th><th>Exam ID</th><th>Exam Title</th>
             <th>Date</th><th>Risk Score</th><th>Actions</th>
           </tr>
         </thead>

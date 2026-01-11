@@ -115,3 +115,27 @@ function logout() {
         window.location.href = "login.html";
     }
 }
+
+// ✅ NEW SEARCH FUNCTION
+function searchExams() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toLowerCase();
+    const tbody = document.getElementById("examTableBody");
+    const rows = tbody.getElementsByTagName("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        const titleCell = rows[i].getElementsByTagName("td")[0]; // Exam Title
+        const studentCell = rows[i].getElementsByTagName("td")[1]; // Student ID & Name
+        
+        if (titleCell && studentCell) {
+            const titleText = titleCell.textContent || titleCell.innerText;
+            const studentText = studentCell.textContent || studentCell.innerText;
+            
+            if (titleText.toLowerCase().indexOf(filter) > -1 || studentText.toLowerCase().indexOf(filter) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+}

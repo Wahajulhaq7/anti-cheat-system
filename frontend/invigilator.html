@@ -10,18 +10,18 @@
   <style>
     /* --- MODAL STYLES --- */
     .modal {
-        display: none; /* Hidden by default */
+        display: none; 
         position: fixed;
-        z-index: 2000; /* High z-index */
+        z-index: 2000; 
         left: 0;
         top: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.6); /* Darker backdrop */
+        background-color: rgba(0, 0, 0, 0.6); 
         justify-content: center;
         align-items: center;
-        backdrop-filter: blur(3px); /* Blur effect */
-        display: flex; /* Ensure flex for centering itself (when visible via JS) */
+        backdrop-filter: blur(3px); 
+        display: flex; 
     }
     
     .modal-content {
@@ -30,7 +30,7 @@
         padding: 0;
         border-radius: 8px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        width: 400px; /* Fixed Width matching Admin Panel */
+        width: 400px; 
         text-align: center;
         position: relative;
         overflow: hidden;
@@ -38,14 +38,13 @@
         flex-direction: column;
     }
     
-    /* --- Header Styles --- */
     .card-header-modal { 
-        background: #5840d8; /* Purple Header */
+        background: #5840d8; 
         color: white; 
         padding: 20px; 
         display: flex;
-        justify-content: center; /* Center horizontally */
-        align-items: center;     /* Center vertically */
+        justify-content: center; 
+        align-items: center;     
         width: 100%;
     }
 
@@ -58,7 +57,6 @@
         gap: 10px;
     }
 
-    /* Success Header Green */
     .modal-header-success {
         color: #28a745;
         font-size: 50px;
@@ -69,7 +67,6 @@
         width: 100%;
     }
 
-    /* --- Body Styles --- */
     .modal-body { 
         padding: 25px; 
         text-align: center; 
@@ -88,19 +85,18 @@
         width: 100%;
     }
 
-    /* Button Container - Flex Center */
     .modal-actions {
         display: flex;
         justify-content: center; 
         align-items: center;
-        gap: 15px; /* Space between buttons */
+        gap: 15px; 
         width: 100%;
         margin-top: 10px;
     }
     
-    /* --- Buttons --- */
+    /* Buttons */
     .btn-confirm-logout {
-        background-color: #5840d8; /* Purple */
+        background-color: #5840d8; 
         color: white;
         border: none;
         padding: 10px 0;
@@ -108,17 +104,17 @@
         cursor: pointer;
         font-size: 14px;
         font-weight: 600;
-        width: 130px; /* Fixed width */
-        height: 40px; /* Fixed height for vertical alignment */
+        width: 130px; 
+        height: 40px; 
         display: flex;
-        justify-content: center; /* Horizontal Center Text */
-        align-items: center;     /* Vertical Center Text */
+        justify-content: center; 
+        align-items: center;     
         transition: background 0.2s;
     }
     .btn-confirm-logout:hover { background-color: #4c35de; }
 
     .btn-cancel {
-        background-color: #6c757d; /* Gray */
+        background-color: #6c757d; 
         color: white;
         border: none;
         padding: 10px 0;
@@ -126,8 +122,8 @@
         cursor: pointer;
         font-size: 14px;
         font-weight: 600;
-        width: 130px; /* Fixed width */
-        height: 40px; /* Fixed height */
+        width: 130px; 
+        height: 40px; 
         display: flex;
         justify-content: center;
         align-items: center;
@@ -209,6 +205,15 @@
       <div class="exam-header">
         <input type="text" id="examTitle" placeholder="Enter exam title" required>
       </div>
+
+      <span class="time-section-title"><i class="fa-solid fa-hourglass-half"></i> Set Exam Duration</span>
+      <div class="time-settings">
+        <div class="time-group">
+            <label><i class="fa-regular fa-clock"></i> Duration (Minutes)</label>
+            <input type="number" id="examMinutes" min="1" placeholder="e.g. 60" value="30">
+        </div>
+      </div>
+
       <div id="questionsContainer"></div>
       
       <div class="form-actions">

@@ -569,3 +569,31 @@ window.onclick = function(event) {
     if (event.target === successModal) closeSuccessModal();
     if (event.target === logoutModal && typeof closeLogoutModal === 'function') closeLogoutModal();
 };
+
+// ✅ NEW SEARCH FUNCTION (Updated with Exam Title)
+function searchReports() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toLowerCase();
+    const tbody = document.getElementById("reportsBody");
+    const rows = tbody.getElementsByTagName("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        const tdId = rows[i].getElementsByTagName("td")[0]; // Student ID
+        const tdName = rows[i].getElementsByTagName("td")[1]; // Student Name
+        const tdExam = rows[i].getElementsByTagName("td")[3]; // Exam Title
+        
+        if (tdId && tdName && tdExam) {
+            const idValue = tdId.textContent || tdId.innerText;
+            const nameValue = tdName.textContent || tdName.innerText;
+            const examValue = tdExam.textContent || tdExam.innerText;
+            
+            if (idValue.toLowerCase().indexOf(filter) > -1 || 
+                nameValue.toLowerCase().indexOf(filter) > -1 || 
+                examValue.toLowerCase().indexOf(filter) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+}

@@ -94,9 +94,16 @@
 
     <main>
         <section class="exam-list">
-            <div style="margin-bottom: 20px;">
-                <h2><i class="fa-solid fa-list"></i> Exams by Student</h2>
+            <div style="position: relative; display: flex; align-items: center; justify-content: flex-start; margin-bottom: 20px; height: 40px;">
+                <h2 style="margin: 0;"><i class="fa-solid fa-list"></i> Exams by Student</h2>
+                
+                <div class="search-container" style="position: absolute; left: 50%; transform: translateX(-50%); width: 300px;">
+                    <input type="text" id="searchInput" onkeyup="searchExams()" placeholder="Search by Exam or Student..." 
+                           style="width: 100%; padding: 10px 35px 10px 15px; border-radius: 6px; border: 1px solid #cbd5e0; outline: none;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #a0aec0;"></i>
+                </div>
             </div>
+
             <table>
                 <thead>
                     <tr>

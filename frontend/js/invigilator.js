@@ -222,6 +222,13 @@ async function createExam() {
     if (!token) throw new Error('Please login again');
 
     const examTitle = document.getElementById('examTitle').value.trim();
+    
+    // ✅ NEW: GET MINUTES ONLY
+    const totalDuration = parseInt(document.getElementById('examMinutes').value) || 0;
+
+    if (!examTitle) throw new Error('Exam title is required');
+    if (totalDuration <= 0) throw new Error('Please set a valid exam duration (at least 1 minute).');
+
     const questions = [];
     let isValid = true;
 
@@ -244,7 +251,6 @@ async function createExam() {
       });
     });
 
-    if (!examTitle) throw new Error('Exam title is required');
     if (!isValid || questions.length === 0) {
       throw new Error('Please complete all questions fields.');
     }
@@ -258,6 +264,7 @@ async function createExam() {
       body: JSON.stringify({
         title: examTitle,
         description: "", 
+        duration_minutes: totalDuration, // ✅ SEND DURATION (Minutes)
         questions
       })
     });
@@ -269,7 +276,7 @@ async function createExam() {
 
     const result = await response.json();
     
-    // Trigger Success Modal (Defined in HTML)
+    // Trigger Success Modal
     if (typeof openSuccessModal === 'function') {
         openSuccessModal(`Exam created successfully! ID: ${result.exam_id}`);
     } else {
@@ -279,6 +286,8 @@ async function createExam() {
     // Reset form
     const form = document.getElementById('examForm');
     if (form) form.reset();
+    document.getElementById('examMinutes').value = "30"; // Reset default
+    
     const qContainer = document.getElementById('questionsContainer');
     if (qContainer) qContainer.innerHTML = '';
     questionIndex = 1;

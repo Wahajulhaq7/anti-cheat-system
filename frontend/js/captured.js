@@ -12,9 +12,23 @@ if (!role || !token) {
 }
 
 // ---------------------------
-// MODAL STATE VARIABLES
+// DATA STATE
 // ---------------------------
+let allDetectionsData = []; // Store full list for filtering
+let loadedDetections = new Set(); // Keep track of duplicates
 let detectionToDeleteId = null;
+
+// ---------------------------
+// INITIALIZATION
+// ---------------------------
+window.onload = () => {
+  loadDetections();
+  setInterval(loadDetections, 5000); // refresh every 5 seconds
+  
+  // ✅ Event Listeners for Live Filtering
+  document.getElementById('searchName').addEventListener('input', renderTable);
+  document.getElementById('searchDate').addEventListener('change', renderTable);
+};
 
 // ---------------------------
 // LOGOUT FUNCTIONS
@@ -33,15 +47,8 @@ function confirmLogout() {
 }
 
 // ---------------------------
-// LOAD DATA
+// DATA LOADING & RENDERING
 // ---------------------------
-let loadedDetections = new Set();
-
-window.onload = () => {
-  loadDetections();
-  setInterval(loadDetections, 5000); // refresh every 5 seconds
-};
-
 async function loadDetections() {
   try {
     const res = await fetch("http://localhost:8000/monitor/unusual-movements", {
@@ -56,23 +63,64 @@ async function loadDetections() {
       throw new Error(`Failed to fetch detections: ${res.status}`);
     }
 
-    const detections = await res.json();
+    const newDetections = await res.json();
+    let hasUpdates = false;
+
+    // Process new data
+    newDetections.forEach(det => {
+        if (!loadedDetections.has(det.id)) {
+            loadedDetections.add(det.id);
+            allDetectionsData.push(det);
+            hasUpdates = true;
+        }
+    });
+
+    // If new data found, re-sort and render
+    if (hasUpdates || allDetectionsData.length === 0) {
+        // Sort by timestamp descending (newest first)
+        allDetectionsData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        renderTable();
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ✅ NEW: Filter and Render Table
+function renderTable() {
+    const nameFilter = document.getElementById('searchName').value.toLowerCase();
+    const dateFilter = document.getElementById('searchDate').value;
+    
     const tbody = document.querySelector("#detectionsTable tbody");
+    tbody.innerHTML = "";
 
-    if (tbody.innerHTML.includes("No detections found")) {
-      tbody.innerHTML = "";
+    // Filter Logic
+    const filtered = allDetectionsData.filter(det => {
+        // 1. Name Check
+        const matchesName = (det.username || "").toLowerCase().includes(nameFilter);
+        
+        // 2. Date Check
+        let matchesDate = true;
+        if (dateFilter) {
+            // Timestamp format comes as ISO: 2026-01-11T14:53...
+            // Convert detection timestamp to YYYY-MM-DD
+            const detDate = new Date(det.timestamp).toISOString().split('T')[0];
+            matchesDate = detDate === dateFilter;
+        }
+        
+        return matchesName && matchesDate;
+    });
+
+    // Empty State
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#999; padding: 20px;">No matching detections found.</td></tr>`;
+        return;
     }
 
-    if (detections.length === 0 && !tbody.hasChildNodes()) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#999;">No detections found.</td></tr>`;
-      return;
-    }
-
-    detections.reverse().forEach(det => {
+    // Render Rows
+    filtered.forEach(det => {
       const detId = det.id; 
-      if (loadedDetections.has(detId)) return;
-      loadedDetections.add(detId);
-
       let path = det.frame_image_path.replace(/\\/g, "/");
       if (path.startsWith("uploads/")) {
         path = path.replace("uploads/", "");
@@ -89,21 +137,23 @@ async function loadDetections() {
         <td>${det.movement_type || "Unknown"}</td>
         <td>${new Date(det.timestamp || Date.now()).toLocaleString()}</td>
         <td>
-           <button class="btn-view" onclick="openImageModal('${imageUrl}')">
-             <i class="fa-solid fa-eye"></i> View
-           </button>
-           
-           <button class="btn-delete" onclick="openDeleteModal(${detId})">
-             <i class="fa-solid fa-trash"></i> Delete
-           </button>
+            <button class="btn-view" onclick="openImageModal('${imageUrl}')">
+              <i class="fa-solid fa-eye"></i> View
+            </button>
+            
+            <button class="btn-delete" onclick="openDeleteModal(${detId})">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
         </td>
       `;
-      tbody.prepend(tr); 
+      tbody.appendChild(tr);
     });
+}
 
-  } catch (err) {
-    console.error(err);
-  }
+function resetFilters() {
+    document.getElementById('searchName').value = '';
+    document.getElementById('searchDate').value = '';
+    renderTable();
 }
 
 // ---------------------------
@@ -141,17 +191,12 @@ async function confirmDelete() {
       throw new Error("Failed to delete detection");
     }
 
-    const row = document.getElementById(`row-${detectionToDeleteId}`);
-    if (row) {
-      row.remove();
-    }
-    
+    // Remove from local data arrays
+    allDetectionsData = allDetectionsData.filter(d => d.id !== detectionToDeleteId);
     loadedDetections.delete(detectionToDeleteId);
     
-    const tbody = document.querySelector("#detectionsTable tbody");
-    if (!tbody.hasChildNodes()) {
-       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#999;">No detections found.</td></tr>`;
-    }
+    // Re-render
+    renderTable();
 
     closeDeleteModal(); 
     
