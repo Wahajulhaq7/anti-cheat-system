@@ -18,7 +18,7 @@ function logout() {
 // Load all users on page load
 window.onload = () => {
   loadUsers();
-  loadDashboardStats(); // <--- Load Analytics
+  loadDashboardStats(); 
 };
 
 // Toggle password visibility
@@ -41,18 +41,15 @@ async function loadDashboardStats() {
     if (!token) return;
 
     try {
-        // 1. Fetch Total Users (All Roles) - ✅ Using new endpoint
         const usersRes = await fetch("http://localhost:8000/auth/users/count/all", {
             headers: { "Authorization": `Bearer ${token}` }
         });
-        
         if (usersRes.ok) {
             const data = await usersRes.json();
             const el = document.getElementById("totalUsersCount"); 
             if (el) el.textContent = data.count;
         }
 
-        // 2. Fetch Total Exams Created - ✅ Using new endpoint
         const examsRes = await fetch("http://localhost:8000/exam/count/all", {
             headers: { "Authorization": `Bearer ${token}` }
         });
@@ -62,7 +59,6 @@ async function loadDashboardStats() {
             if (el) el.textContent = data.count;
         }
 
-        // 3. Fetch Suspicious Activities
         const susRes = await fetch("http://localhost:8000/monitor/suspicious-images/count", {
             headers: { "Authorization": `Bearer ${token}` }
         });
@@ -82,7 +78,6 @@ async function loadUsers() {
   try {
     const token = localStorage.getItem("token");
     if (!token) {
-      console.warn("No token found. Redirecting to login.");
       window.location.href = "login.html";
       return;
     }
@@ -115,7 +110,6 @@ async function loadUsers() {
 
     users.forEach(user => {
       const tr = document.createElement("tr");
-      // ✅ FIXED: Show role as text, not dropdown
       const displayRole = user.role.charAt(0).toUpperCase() + user.role.slice(1);
       
       tr.innerHTML = `
@@ -131,7 +125,7 @@ async function loadUsers() {
     });
   } catch (err) {
     console.error("Load users error:", err);
-    alert("❌ Failed to load users. Check connection or login again.");
+    alert("❌ Failed to load users.");
   }
 }
 
@@ -178,7 +172,7 @@ async function addUser() {
   }
 }
 
-// Edit User Modal
+// Edit User Modal Variables
 let currentUserID = null;
 let originalUsername = "";
 let originalRole = "";
@@ -188,7 +182,7 @@ function openEditModal(userId, button) {
   const row = button.closest("tr");
   originalUsername = row.cells[1].textContent;
   
-  // ✅ FIXED: Get raw role from data attribute instead of parsing dropdown
+  // Get raw role from data attribute
   originalRole = row.querySelector(".role-cell").getAttribute("data-role");
 
   document.getElementById("modalUsername").value = originalUsername;
@@ -198,89 +192,54 @@ function openEditModal(userId, button) {
   document.getElementById("editUserModal").style.display = "flex";
 }
 
-// Save user (only send changed fields)
-async function saveUserFromModal() {
-  const username = document.getElementById("modalUsername").value.trim();
-  const role = document.getElementById("modalRole").value;
-  const password = document.getElementById("modalPassword").value;
-
-  if (!username) {
-    alert("Username is required");
-    return;
-  }
-
-  const payload = {};
-  if (username !== originalUsername) payload.username = username;
-  if (role !== originalRole) payload.role = role;
-  if (password) payload.password = password;
-
-  if (Object.keys(payload).length === 0) {
-    closeModal();
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`http://localhost:8000/auth/users/${currentUserID}`, {
-      method: "PUT",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (res.status === 401) {
-      alert("Session expired. Please log in again.");
-      logout();
-      return;
-    }
-
-    if (res.ok) {
-      alert("✅ User updated!");
-      loadUsers();
-      closeModal();
-    } else {
-      const err = await res.json();
-      alert("❌ " + (err.detail || "Update failed"));
-    }
-  } catch (err) {
-    console.error("Update error:", err);
-    alert("❌ Network error");
-  }
-}
-
 // Close modal
 function closeModal() {
   document.getElementById("editUserModal").style.display = "none";
 }
 
-// Delete user
-async function deleteUser(userId) {
-  if (!confirm("Are you sure you want to delete this user?")) return;
+// Delete user (Logic handled in HTML via global vars for simplicity or can be here)
+// Note: verify deleteUser calls in HTML match signatures here.
 
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`http://localhost:8000/auth/users/${userId}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
+// ✅ PROCEED CLEANUP (Called from the Privacy Modal)
+async function proceedCleanup() {
+    // 1. Close Privacy Modal immediately
+    closePrivacyModal();
 
-    if (res.status === 401) {
-      alert("Session expired. Please log in again.");
-      logout();
-      return;
+    // 2. Show loading state on main button
+    const btn = document.getElementById("btnTriggerCleanup");
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cleaning...';
+        btn.disabled = true;
     }
 
-    if (res.ok) {
-      alert("✅ User deleted!");
-      loadUsers();
-    } else {
-      const err = await res.json();
-      alert("❌ " + (err.detail || "Delete failed"));
+    try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:8000/admin/privacy/cleanup", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+        
+        if (res.ok) {
+            // 3. Open Success Modal with Details
+            openSuccessModal(`
+                <strong>Privacy Purge Complete!</strong><br><br>
+                Policy: Older than ${data.retention_policy}<br>
+                Status: ${data.message}
+            `);
+            loadDashboardStats();
+        } else {
+            alert("❌ Cleanup failed: " + (data.detail || "Unknown error"));
+        }
+    } catch (err) {
+        console.error(err);
+        alert("❌ Network Error");
+    } finally {
+        // 4. Reset Button
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-broom"></i> Run Cleanup Now';
+            btn.disabled = false;
+        }
     }
-  } catch (err) {
-    console.error("Delete error:", err);
-    alert("❌ Network error");
-  }
 }

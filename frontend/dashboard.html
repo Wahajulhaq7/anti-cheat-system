@@ -38,31 +38,25 @@
           text-align: center;
       }
 
-      /* Specific Red Header for Delete Modal */
-      .card-header-modal.delete-header {
-          background: #dc3545;
-      }
+      /* Specific Red Header for Delete */
+      .card-header-modal.delete-header { background: #dc3545; }
 
-      /* Specific Green Header for Success Modal */
-      .card-header-modal.success-header {
-          background: #28a745; /* Success Green */
-      }
+      /* Specific Green Header for Success */
+      .card-header-modal.success-header { background: #28a745; }
 
-      .card-header-modal h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-      }
+      /* Specific Orange Header for Warning/Privacy */
+      .card-header-modal.warning-header { background: #d69e2e; }
+
+      .card-header-modal h3 { margin: 0; font-size: 18px; font-weight: 600; }
       
       .modal-body { padding: 25px; text-align: center; background: #fff; }
       
-      /* Labels */
       .modal-body label {
           display: block;
           margin: 10px 0 5px;
           font-size: 14px;
-          color: #5840d8; /* Theme Purple for High Visibility */
-          font-weight: 600; /* Bolder text */
+          color: #5840d8; 
+          font-weight: 600;
       }
 
       .modal-actions { 
@@ -72,39 +66,25 @@
           margin-top: 10px; 
       }
       
-      /* Fixed Button Sizing */
       .modal-actions button {
           width: 140px !important;
-          min-width: 140px !important;
-          max-width: 140px !important;
-          flex: 0 0 140px !important; 
           padding: 12px 0;
           border: none;
           border-radius: 6px;
           cursor: pointer;
           font-size: 15px;
           font-weight: 600;
-          text-align: center;
-          transition: background-color 0.2s;
           color: white;
+          transition: background-color 0.2s;
       }
 
-      /* Purple Buttons */
-      .btn-confirm-logout, .btn-save, .btn-ok { 
-          background-color: #5840d8; 
-      }
+      .btn-confirm-logout, .btn-save, .btn-ok { background-color: #5840d8; }
       .btn-confirm-logout:hover, .btn-save:hover, .btn-ok:hover { background-color: #4c35de; }
 
-      /* Red Buttons */
-      .btn-confirm-delete { 
-          background-color: #dc3545; 
-      }
+      .btn-confirm-delete { background-color: #dc3545; }
       .btn-confirm-delete:hover { background-color: #c82333; }
 
-      /* Gray Buttons */
-      .btn-cancel { 
-          background-color: #6c757d; 
-      }
+      .btn-cancel { background-color: #6c757d; }
       .btn-cancel:hover { background-color: #5a6268; }
   </style>
 </head>
@@ -132,22 +112,18 @@
     </div>
 
     <div class="stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-        
         <div class="stat-card" style="background: #1e253f; padding: 20px; border-radius: 8px; border-left: 4px solid #5840d8; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
             <h3 style="margin: 0; font-size: 14px; color: #a0aec0;">Total Users</h3>
             <p id="totalUsersCount" style="font-size: 28px; font-weight: bold; margin: 10px 0 0 0; color: #fff;">0</p>
         </div>
-
         <div class="stat-card" style="background: #1e253f; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
             <h3 style="margin: 0; font-size: 14px; color: #a0aec0;">Total Exams Created</h3>
             <p id="totalExamsCount" style="font-size: 28px; font-weight: bold; margin: 10px 0 0 0; color: #fff;">0</p>
         </div>
-
         <div class="stat-card" style="background: #1e253f; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
             <h3 style="margin: 0; font-size: 14px; color: #a0aec0;">Suspicious Activities</h3>
             <p id="suspiciousCount" style="font-size: 28px; font-weight: bold; margin: 10px 0 0 0; color: #fff;">0</p>
         </div>
-
     </div>
 
     <div class="section-header">
@@ -159,7 +135,6 @@
         <div class="form-group">
           <input type="text" id="newUsername" placeholder="Username" required>
         </div>
-
         <div class="form-group">
            <div class="input-wrapper">
              <input type="password" id="newPassword" placeholder="Password" required>
@@ -168,7 +143,6 @@
              </span>
            </div>
         </div>
-
         <div class="form-group">
           <select id="newRole">
             <option value="student">Student</option>
@@ -176,18 +150,33 @@
             <option value="invigilator">Invigilator</option>
           </select>
         </div>
-
         <button onclick="overrideAddUser()" class="btn-create">
           <i class="fa-solid fa-plus"></i> Create User
         </button>
       </div>
     </div>
 
+    <div class="section-header" style="margin-top: 30px;">
+      <h4><i class="fa-solid fa-user-shield"></i> Privacy & Compliance</h4>
+    </div>
+    
+    <div class="action-card" style="border-left: 4px solid #28a745; display: flex; justify-content: space-between; align-items: center; background: #1e253f; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+      <div>
+        <h3 style="margin: 0; font-size: 16px; color: #ffffff;">Data Retention Policy</h3>
+        <p style="margin: 5px 0 0; color: #a0aec0; font-size: 14px;">
+          System automatically purges violation images older than <strong>20 Days</strong>. 
+          <br>Use this button to manually trigger a compliance cleanup.
+        </p>
+      </div>
+      <button id="btnTriggerCleanup" onclick="openPrivacyModal()" class="btn-create" style="background-color: #28a745; width: auto; padding: 10px 20px; border:none; border-radius:6px; color:white; font-weight:600; cursor:pointer;">
+        <i class="fa-solid fa-broom"></i> Run Cleanup Now
+      </button>
+    </div>
+
     <div class="table-container">
       <div class="table-header">
         <h3><i class="fa-solid fa-users"></i> All Users</h3>
       </div>
-
       <table id="usersTable">
         <thead>
           <tr>
@@ -205,28 +194,20 @@
 
   <div id="editUserModal" class="modal">
     <div class="modal-content">
-      <div class="card-header-modal">
-        <h3>Edit User</h3>
-      </div>
+      <div class="card-header-modal"><h3>Edit User</h3></div>
       <div class="modal-body">
-        <label>Username:</label>
-        <input type="text" id="modalUsername">
-        
+        <label>Username:</label><input type="text" id="modalUsername">
         <label>Role:</label>
         <select id="modalRole">
            <option value="student">Student</option>
            <option value="admin">Admin</option>
            <option value="invigilator">Invigilator</option>
         </select>
-
         <label>New Password:</label>
         <div class="input-wrapper">
           <input type="password" id="modalPassword" placeholder="Leave blank to keep current">
-          <span class="password-toggle" onclick="togglePassword('modalPassword')">
-            <i class="fa-solid fa-eye"></i>
-          </span>
+          <span class="password-toggle" onclick="togglePassword('modalPassword')"><i class="fa-solid fa-eye"></i></span>
         </div>
-        
         <div class="modal-actions">
           <button onclick="overrideSaveUser()" class="btn-save">Save</button>
           <button onclick="closeModal()" class="btn-cancel">Cancel</button>
@@ -237,9 +218,7 @@
 
   <div id="logoutModal" class="modal">
     <div class="modal-content">
-      <div class="card-header-modal">
-        <h3><i class="fa-solid fa-right-from-bracket"></i> Are you sure you want to log out?</h3>
-      </div>
+      <div class="card-header-modal"><h3><i class="fa-solid fa-right-from-bracket"></i> Are you sure you want to log out?</h3></div>
       <div class="modal-body">
         <div class="modal-actions">
           <button onclick="confirmLogout()" class="btn-confirm-logout">Logout</button>
@@ -251,9 +230,7 @@
 
   <div id="deleteUserModal" class="modal">
     <div class="modal-content">
-      <div class="card-header-modal delete-header">
-        <h3><i class="fa-solid fa-trash-can"></i> Confirm Delete</h3>
-      </div>
+      <div class="card-header-modal delete-header"><h3><i class="fa-solid fa-trash-can"></i> Confirm Delete</h3></div>
       <div class="modal-body">
         <p style="color:#2d3748; font-size:16px; margin-bottom: 20px;">Are you sure you want to delete this user?</p>
         <div class="modal-actions">
@@ -266,13 +243,30 @@
 
   <div id="successModal" class="modal">
     <div class="modal-content">
-      <div class="card-header-modal success-header">
-        <h3><i class="fa-solid fa-check-circle"></i> Success</h3>
-      </div>
+      <div class="card-header-modal success-header"><h3><i class="fa-solid fa-check-circle"></i> Success</h3></div>
       <div class="modal-body">
-        <p id="successMessage" style="color:#2d3748; font-size:16px; margin-bottom: 20px;">Operation successful!</p>
+        <p id="successMessage" style="color:#2d3748; font-size:16px; margin-bottom: 20px; line-height: 1.5; white-space: pre-line;">Operation successful!</p>
         <div class="modal-actions">
           <button onclick="closeSuccessModal()" class="btn-ok">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="privacyModal" class="modal">
+    <div class="modal-content">
+      <div class="card-header-modal warning-header">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i> Privacy Protocol</h3>
+      </div>
+      <div class="modal-body">
+        <p style="color:#2d3748; font-size:16px; margin-bottom: 20px; line-height: 1.5;">
+            This will permanently delete all violation images and profiles older than <strong>20 days</strong>.
+            <br><br>
+            Are you sure you want to proceed?
+        </p>
+        <div class="modal-actions">
+          <button onclick="proceedCleanup()" class="btn-save" style="background-color: #d69e2e;">Proceed</button>
+          <button onclick="closePrivacyModal()" class="btn-cancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -281,31 +275,18 @@
   <script src="js/dashboard.js"></script>
 
   <script>
-      // --- Logout Logic ---
-      function openLogoutModal() {
-        document.getElementById('logoutModal').style.display = 'flex';
-      }
+      // Global Modal Functions
+      function openLogoutModal() { document.getElementById('logoutModal').style.display = 'flex'; }
+      function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
+      function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-      function closeLogoutModal() {
-        document.getElementById('logoutModal').style.display = 'none';
-      }
+      // Privacy Modal Functions
+      function openPrivacyModal() { document.getElementById('privacyModal').style.display = 'flex'; }
+      function closePrivacyModal() { document.getElementById('privacyModal').style.display = 'none'; }
 
-      function confirmLogout() {
-        localStorage.clear();
-        window.location.href = 'login.html';
-      }
-
-      // --- Delete Logic ---
       let userToDeleteId = null;
-      function deleteUser(userId) {
-          userToDeleteId = userId;
-          document.getElementById('deleteUserModal').style.display = 'flex';
-      }
-
-      function closeDeleteModal() {
-          document.getElementById('deleteUserModal').style.display = 'none';
-          userToDeleteId = null;
-      }
+      function deleteUser(userId) { userToDeleteId = userId; document.getElementById('deleteUserModal').style.display = 'flex'; }
+      function closeDeleteModal() { document.getElementById('deleteUserModal').style.display = 'none'; userToDeleteId = null; }
 
       async function confirmDelete() {
           if (!userToDeleteId) return;
@@ -317,136 +298,86 @@
               });
               if (res.ok) {
                   loadUsers(); 
-                  loadDashboardStats(); // ✅ REFRESH STATS ON DELETE
+                  loadDashboardStats(); 
                   closeDeleteModal();
                   openSuccessModal("User deleted successfully!");
               } else {
                   const err = await res.json();
                   alert("❌ " + (err.detail || "Delete failed"));
               }
-          } catch (err) {
-              console.error("Delete error:", err);
-          }
+          } catch (err) { console.error("Delete error:", err); }
       }
 
-      // --- SUCCESS MODAL LOGIC ---
       function openSuccessModal(message) {
-          const msgElement = document.getElementById('successMessage');
-          if (message) {
-              msgElement.textContent = message;
-          }
+          if (message) document.getElementById('successMessage').innerHTML = message;
           document.getElementById('successModal').style.display = 'flex';
       }
-      
-      function closeSuccessModal() {
-          document.getElementById('successModal').style.display = 'none';
-      }
+      function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
 
-      // --- OVERRIDE SAVE FUNCTION (EDIT) ---
+      // ✅ FIXED: Renamed function to match HTML onclick="overrideSaveUser()"
       async function overrideSaveUser() {
           const username = document.getElementById("modalUsername").value.trim();
           const role = document.getElementById("modalRole").value;
           const password = document.getElementById("modalPassword").value;
-
           if (!username) { alert("Username required"); return; }
 
           const payload = {};
-          if (typeof currentUserID === 'undefined' || !currentUserID) {
-             alert("Error: No user selected"); return;
-          }
-
-          payload.username = username;
-          payload.role = role;
+          if (username !== originalUsername) payload.username = username;
+          if (role !== originalRole) payload.role = role;
           if (password) payload.password = password;
+
+          if (Object.keys(payload).length === 0) { closeModal(); return; }
 
           try {
               const token = localStorage.getItem("token");
               const res = await fetch(`http://localhost:8000/auth/users/${currentUserID}`, {
                   method: "PUT",
-                  headers: {
-                      "Authorization": `Bearer ${token}`,
-                      "Content-Type": "application/json"
-                  },
+                  headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                   body: JSON.stringify(payload)
               });
-
               if (res.ok) {
                   closeModal();       
-                  loadUsers();        
+                  loadUsers();
                   openSuccessModal("User updated successfully!"); 
               } else {
                   const err = await res.json();
                   alert("❌ " + (err.detail || "Update failed"));
               }
-          } catch (err) {
-              console.error("Update error:", err);
-          }
+          } catch (err) { console.error("Update error:", err); }
       }
 
-      // --- OVERRIDE ADD USER FUNCTION (NEW) ---
       async function overrideAddUser() {
           const username = document.getElementById("newUsername").value.trim();
           const password = document.getElementById("newPassword").value;
           const role = document.getElementById("newRole").value;
-
-          if (!username || !password) {
-            alert("Username and password are required");
-            return;
-          }
+          if (!username || !password) { alert("Username and password required"); return; }
 
           try {
             const token = localStorage.getItem("token");
             const res = await fetch("http://localhost:8000/auth/register", {
               method: "POST",
-              headers: {
-                "Authorization": `Bearer ${token}`,
-                "Content-Type": "application/json"
-              },
+              headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
               body: JSON.stringify({ username, password, role })
             });
-
-            if (res.status === 401) {
-              alert("Session expired. Please log in again.");
-              confirmLogout();
-              return;
-            }
-
             if (res.ok) {
-              // Clear inputs
               document.getElementById("newUsername").value = "";
               document.getElementById("newPassword").value = "";
-              
-              // Refresh table
               loadUsers();
-              
-              // ✅ REFRESH STATS
-              loadDashboardStats();
-
-              // Show Success Modal
+              loadDashboardStats(); 
               openSuccessModal("User created successfully!");
             } else {
               const err = await res.json();
               alert("❌ " + (err.detail || "Failed to create user"));
             }
-          } catch (err) {
-            console.error("Create error:", err);
-            alert("❌ Server connection failed");
-          }
+          } catch (err) { console.error("Create error:", err); }
       }
 
-      // --- Close modals on outside click ---
       window.onclick = function(event) {
-        const logoutModal = document.getElementById('logoutModal');
-        const editModal = document.getElementById('editUserModal');
-        const deleteModal = document.getElementById('deleteUserModal');
-        const successModal = document.getElementById('successModal');
-
-        if (event.target == logoutModal) closeLogoutModal();
-        if (event.target == editModal) {
-            if(typeof closeModal === 'function') closeModal();
-        }
-        if (event.target == deleteModal) closeDeleteModal();
-        if (event.target == successModal) closeSuccessModal();
+        if (event.target == document.getElementById('logoutModal')) closeLogoutModal();
+        if (event.target == document.getElementById('editUserModal')) closeModal();
+        if (event.target == document.getElementById('deleteUserModal')) closeDeleteModal();
+        if (event.target == document.getElementById('successModal')) closeSuccessModal();
+        if (event.target == document.getElementById('privacyModal')) closePrivacyModal();
       }
   </script>
 </body>

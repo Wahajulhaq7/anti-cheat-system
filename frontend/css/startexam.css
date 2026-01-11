@@ -52,24 +52,6 @@ body {
 }
 #username i { color: #38bdf8; }
 
-.btn-logout {
-    background: #e53e3e;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.2s;
-}
-
-.btn-logout:hover {
-    background: #c53030;
-}
 
 /* =========================================
    MAIN EXAM LAYOUT
