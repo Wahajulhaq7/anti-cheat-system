@@ -58,6 +58,9 @@ async def create_exam(
         if created_by is None:
             raise HTTPException(status_code=401, detail="User ID not found in current_user")
 
+        # Extract duration from request (default to 60 if missing)
+        duration = exam_data.get("duration_minutes", 60)
+
         # Insert exam
         exam_query = text("""
             INSERT INTO dbo.Exams (title, description, start_time, end_time, duration_minutes, created_by, created_at)
@@ -66,8 +69,8 @@ async def create_exam(
                 :title,
                 :description,
                 GETDATE(),
-                DATEADD(HOUR, 2, GETDATE()),
-                120,
+                DATEADD(MINUTE, :duration, GETDATE()),
+                :duration,
                 :created_by,
                 GETDATE()
             )
@@ -77,6 +80,7 @@ async def create_exam(
             {
                 "title": exam_data["title"],
                 "description": exam_data.get("description") or f"Exam: {exam_data['title']}",
+                "duration": duration,
                 "created_by": created_by
             }
         )
@@ -141,7 +145,7 @@ async def get_exam_questions(
 @router.post("/{exam_id}/submit")
 async def submit_exam_answers(
     exam_id: int,
-    request: ExamSubmitRequest,  # ✅ use Pydantic model for validation
+    request: ExamSubmitRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -257,7 +261,7 @@ async def get_my_exam_list(
     return {"my_exams": [dict(row._mapping) for row in rows]}
 
 
-# ✅ DELETE EXAM — ONLY INVIGILATOR CAN DELETE THEIR OWN EXAMS (NO ADMIN OVERRIDE)
+# ✅ DELETE EXAM
 @router.delete("/{exam_id}")
 async def delete_exam(
     exam_id: int,
@@ -267,11 +271,9 @@ async def delete_exam(
     user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
 
-    # ✅ Only invigilators can delete — removed admin override
     if role != "invigilator":
         raise HTTPException(status_code=403, detail="Only invigilators can delete exams")
 
-    # ✅ Check if exam exists
     result = db.execute(
         text("SELECT id, created_by FROM dbo.Exams WHERE id = :eid"),
         {"eid": exam_id}
@@ -280,19 +282,13 @@ async def delete_exam(
     if not result:
         raise HTTPException(status_code=404, detail="Exam not found")
 
-    # ✅ Must be the creator
     if result.created_by != user_id:
         raise HTTPException(status_code=403, detail="You can only delete your own exams")
 
     try:
-        # ✅ Delete related data in correct order (respecting foreign key constraints)
-        # First delete from ActiveExams (if table exists)
         db.execute(text("DELETE FROM dbo.ActiveExams WHERE exam_id = :eid"), {"eid": exam_id})
-        # Then delete student answers
         db.execute(text("DELETE FROM dbo.StudentAnswers WHERE exam_id = :eid"), {"eid": exam_id})
-        # Then delete MCQs
         db.execute(text("DELETE FROM dbo.MCQs WHERE exam_id = :eid"), {"eid": exam_id})
-        # Finally delete the exam
         db.execute(text("DELETE FROM dbo.Exams WHERE id = :eid"), {"eid": exam_id})
         db.commit()
         return {"message": "Exam deleted successfully"}
@@ -320,7 +316,6 @@ async def start_exam(
         raise HTTPException(status_code=403, detail="Only students can start exams")
 
     try:
-        # Optional: prevent duplicate "start" records
         existing = db.execute(text("""
             SELECT COUNT(*) FROM dbo.ActiveExams
             WHERE user_id = :uid AND exam_id = :eid
@@ -338,12 +333,6 @@ async def start_exam(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-# backend/exam.py
-
-# ... (keep your existing imports and other routes) ...
-
-# ✅ REPLACE THE OLD "/admin/list" WITH THIS NEW VERSION
 @router.get("/admin/list")
 async def get_all_exams_status(
     db: Session = Depends(get_db),
@@ -354,30 +343,27 @@ async def get_all_exams_status(
     if role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can view all exams")
 
-    # This query lists ALL Exams for ALL Students and checks if they are done
     query = text("""
         SELECT 
             e.id, 
             e.title, 
             e.created_at,
-            u.id AS student_id,       -- ✅ Selects Student ID
+            u.id AS student_id,
             u.username,
             CASE 
-                -- Checks if student submitted answers
                 WHEN EXISTS (SELECT 1 FROM dbo.StudentAnswers sa WHERE sa.exam_id = e.id AND sa.user_id = u.id) 
                 THEN 'Completed' 
                 ELSE 'Pending' 
             END AS status
         FROM dbo.Exams e
-        CROSS JOIN dbo.Users u            -- Combines every exam with every student
-        WHERE u.role = 'student'          -- Filters only for students
+        CROSS JOIN dbo.Users u
+        WHERE u.role = 'student'
         ORDER BY e.created_at DESC, u.username
     """)
 
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
 
-# backend/exam.py
 
 @router.get("/submitted")
 async def get_submitted_exams(

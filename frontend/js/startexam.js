@@ -1,7 +1,9 @@
 const API_BASE = "http://localhost:8000";
 let detectionInterval = null; 
 let isViolationProcessing = false; 
+let timerInterval = null; // Timer variable
 
+// Global function exposure
 window.openSubmitModal = openSubmitModal;
 window.closeSubmitModal = closeSubmitModal;
 
@@ -20,6 +22,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const userEl = document.getElementById("username");
   if(userEl) userEl.innerHTML = `<i class="fa-solid fa-user-graduate"></i> ${username}`;
 
+  // --- VIOLATION DETECTION ---
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) handleViolation("tab_switch", exam_id, token);
   });
@@ -42,10 +45,89 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   } catch (err) { console.error("Failed to record exam start:", err); }
 
+  // Initialize Timer & Questions
+  await initExamTimer(exam_id, token);
   await loadQuestions(exam_id);
   startWebcamDetection(user_id, exam_id, token);
 });
 
+// --- EXAM TIMER LOGIC ---
+async function initExamTimer(exam_id, token) {
+    try {
+        const res = await fetch(`${API_BASE}/exam/${exam_id}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        if (!res.ok) throw new Error("Failed to fetch exam details");
+        const exam = await res.json();
+        
+        const durationMinutes = exam.duration_minutes || 60; 
+        const storageKey = `exam_end_time_${exam_id}`;
+        
+        let endTime = localStorage.getItem(storageKey);
+        
+        if (!endTime) {
+            const now = new Date().getTime();
+            endTime = now + (durationMinutes * 60 * 1000);
+            localStorage.setItem(storageKey, endTime);
+        }
+
+        updateTimerDisplay(endTime, exam_id, token);
+        timerInterval = setInterval(() => {
+            updateTimerDisplay(endTime, exam_id, token);
+        }, 1000);
+
+    } catch (err) {
+        console.error("Timer Error:", err);
+        document.getElementById("timerDisplay").innerText = "00:00";
+    }
+}
+
+function updateTimerDisplay(endTime, exam_id, token) {
+    const now = new Date().getTime();
+    const distance = endTime - now;
+    
+    const displayElement = document.getElementById("timerDisplay");
+
+    // Time expired
+    if (distance < 0) {
+        clearInterval(timerInterval);
+        displayElement.innerText = "00:00";
+        displayElement.classList.add("warning");
+        
+        // Trigger once
+        if (!displayElement.dataset.expired) {
+            displayElement.dataset.expired = "true";
+            
+            // Show the Time's Up Modal
+            const modal = document.getElementById("timeoutModal");
+            if (modal) modal.style.display = "flex";
+
+            // Submit automatically
+            submitAnswers(exam_id, token, true); 
+        }
+        return;
+    }
+
+    // Calculate hours, minutes, seconds
+    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+    let timeString = "";
+    if (hours > 0) {
+        timeString += `${hours.toString().padStart(2, '0')}:`;
+    }
+    timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    displayElement.innerText = timeString;
+
+    if (distance < 5 * 60 * 1000) {
+        displayElement.classList.add("warning");
+    }
+}
+
+// --- HANDLE VIOLATIONS ---
 async function handleViolation(type, exam_id, token) {
   if (isViolationProcessing) return;
   isViolationProcessing = true; 
@@ -54,6 +136,7 @@ async function handleViolation(type, exam_id, token) {
   await submitAnswers(exam_id, token, true);
 }
 
+// --- LOAD QUESTIONS ---
 async function loadQuestions(exam_id) {
   const list = document.getElementById("question-list");
   list.innerHTML = "<p>Loading questions...</p>";
@@ -100,10 +183,10 @@ async function loadQuestions(exam_id) {
   }
 }
 
+// --- MODAL LOGIC ---
 function openSubmitModal() {
     const modal = document.getElementById('submitModal');
     if (!modal) return;
-    
     modal.style.display = 'flex';
 
     const confirmBtn = document.getElementById('btnConfirmSubmit');
@@ -122,7 +205,12 @@ function closeSubmitModal() {
     if (modal) modal.style.display = 'none';
 }
 
+// --- SUBMIT ANSWERS (UPDATED WITH DELAY) ---
 async function submitAnswers(exam_id, token, isAutoSubmit = false) {
+  // Clear timer and storage immediately
+  if (timerInterval) clearInterval(timerInterval);
+  localStorage.removeItem(`exam_end_time_${exam_id}`);
+
   const answers = [];
   document.querySelectorAll(".question-block").forEach((block, index) => {
     const selected = block.querySelector("input[type='radio']:checked");
@@ -138,6 +226,13 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
   }
 
   console.log("📤 Submitting answers...");
+
+  // ✅ Helper to handle auto-submit redirect with 6s delay
+  const handleAutoSubmitRedirect = () => {
+      setTimeout(() => {
+          window.location.replace("student.html");
+      }, 6000); // 6000ms = 6 seconds
+  };
 
   try {
     const res = await fetch(`${API_BASE}/exam/${exam_id}/submit`, {
@@ -158,22 +253,30 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
             return; 
          }
          alert("Submission failed. Please try again.");
+      } else {
+         // Auto-submit failed? Still redirect after delay so user isn't stuck
+         handleAutoSubmitRedirect();
       }
-      if (isAutoSubmit) window.location.replace("student.html");
       return false;
     }
 
     if (!isAutoSubmit) {
       alert("🎉 Your exam has been submitted successfully!");
+      window.location.replace("student.html");
+    } else {
+      // ✅ Auto-submit Success -> Wait 6 seconds
+      handleAutoSubmitRedirect();
     }
-
-    window.location.replace("student.html");
     return true;
 
   } catch (err) {
     console.error("Submit Error:", err);
-    if (!isAutoSubmit) alert("⚠️ Network error. Please try again.");
-    if (isAutoSubmit) window.location.replace("student.html");
+    if (!isAutoSubmit) {
+        alert("⚠️ Network error. Please try again.");
+    } else {
+        // Network error on auto-submit -> Wait 6 seconds then exit
+        handleAutoSubmitRedirect();
+    }
     return false;
   }
 }
