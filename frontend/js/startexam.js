@@ -1,11 +1,26 @@
 const API_BASE = "http://localhost:8000";
 let detectionInterval = null; 
 let isViolationProcessing = false; 
-let timerInterval = null; // Timer variable
+let timerInterval = null; 
+let isRedirecting = false; // ✅ New flag to control navigation warnings
 
 // Global function exposure
 window.openSubmitModal = openSubmitModal;
 window.closeSubmitModal = closeSubmitModal;
+
+// ✅ 1. PREVENT BROWSER BACK BUTTON
+history.pushState(null, null, document.URL);
+window.addEventListener('popstate', function () {
+    history.pushState(null, null, document.URL);
+});
+
+// ✅ 2. PREVENT ACCIDENTAL RELOAD/CLOSE
+window.addEventListener('beforeunload', (e) => {
+    if (!isRedirecting) {
+        e.preventDefault();
+        e.returnValue = ''; // Required for Chrome
+    }
+});
 
 window.addEventListener("DOMContentLoaded", async () => {
   const token = localStorage.getItem("token");
@@ -15,6 +30,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if (!token || !user_id || !exam_id) {
     alert("Missing exam session. Please login and start an exam.");
+    isRedirecting = true; // Allow redirect without warning
     window.location.replace("available_exams.html");
     return;
   }
@@ -62,14 +78,20 @@ async function initExamTimer(exam_id, token) {
         const exam = await res.json();
         
         const durationMinutes = exam.duration_minutes || 60; 
-        const storageKey = `exam_end_time_${exam_id}`;
-        
-        let endTime = localStorage.getItem(storageKey);
-        
-        if (!endTime) {
+        const durationMs = durationMinutes * 60 * 1000;
+        let endTime;
+
+        if (exam.student_start_time) {
+            // Force UTC parsing
+            const startTimeStr = exam.student_start_time.endsWith("Z") 
+                ? exam.student_start_time 
+                : exam.student_start_time + "Z";
+                
+            const startTime = new Date(startTimeStr).getTime();
+            endTime = startTime + durationMs;
+        } else {
             const now = new Date().getTime();
-            endTime = now + (durationMinutes * 60 * 1000);
-            localStorage.setItem(storageKey, endTime);
+            endTime = now + durationMs;
         }
 
         updateTimerDisplay(endTime, exam_id, token);
@@ -89,27 +111,22 @@ function updateTimerDisplay(endTime, exam_id, token) {
     
     const displayElement = document.getElementById("timerDisplay");
 
-    // Time expired
     if (distance < 0) {
         clearInterval(timerInterval);
         displayElement.innerText = "00:00";
         displayElement.classList.add("warning");
         
-        // Trigger once
         if (!displayElement.dataset.expired) {
             displayElement.dataset.expired = "true";
             
-            // Show the Time's Up Modal
             const modal = document.getElementById("timeoutModal");
             if (modal) modal.style.display = "flex";
 
-            // Submit automatically
             submitAnswers(exam_id, token, true); 
         }
         return;
     }
 
-    // Calculate hours, minutes, seconds
     const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((distance % (1000 * 60)) / 1000);
@@ -205,9 +222,8 @@ function closeSubmitModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// --- SUBMIT ANSWERS (UPDATED WITH DELAY) ---
+// --- SUBMIT ANSWERS ---
 async function submitAnswers(exam_id, token, isAutoSubmit = false) {
-  // Clear timer and storage immediately
   if (timerInterval) clearInterval(timerInterval);
   localStorage.removeItem(`exam_end_time_${exam_id}`);
 
@@ -227,11 +243,11 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
 
   console.log("📤 Submitting answers...");
 
-  // ✅ Helper to handle auto-submit redirect with 6s delay
   const handleAutoSubmitRedirect = () => {
+      isRedirecting = true; // ✅ Allow redirect
       setTimeout(() => {
           window.location.replace("student.html");
-      }, 6000); // 6000ms = 6 seconds
+      }, 6000); 
   };
 
   try {
@@ -249,12 +265,12 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
     if (!res.ok) {
       if (!isAutoSubmit) {
          if (responseText.includes("already submitted")) {
+            isRedirecting = true; // ✅ Allow redirect
             window.location.replace("student.html");
             return; 
          }
          alert("Submission failed. Please try again.");
       } else {
-         // Auto-submit failed? Still redirect after delay so user isn't stuck
          handleAutoSubmitRedirect();
       }
       return false;
@@ -262,9 +278,9 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
 
     if (!isAutoSubmit) {
       alert("🎉 Your exam has been submitted successfully!");
+      isRedirecting = true; // ✅ Allow redirect
       window.location.replace("student.html");
     } else {
-      // ✅ Auto-submit Success -> Wait 6 seconds
       handleAutoSubmitRedirect();
     }
     return true;
@@ -274,7 +290,6 @@ async function submitAnswers(exam_id, token, isAutoSubmit = false) {
     if (!isAutoSubmit) {
         alert("⚠️ Network error. Please try again.");
     } else {
-        // Network error on auto-submit -> Wait 6 seconds then exit
         handleAutoSubmitRedirect();
     }
     return false;

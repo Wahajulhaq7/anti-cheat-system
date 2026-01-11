@@ -9,27 +9,25 @@ from datetime import datetime
 
 router = APIRouter()
 
-# ✅ NEW: GET AVAILABLE EXAMS FOR STUDENTS
+# ✅ GET AVAILABLE EXAMS FOR STUDENTS
 @router.get("/available")
 async def get_available_exams(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # Allow only students
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
     if role != "student":
         raise HTTPException(status_code=403, detail="Only students can view available exams")
 
-    # Get user ID
     user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found")
 
-    # Fetch exams that are still active or upcoming AND not yet submitted by this student
+    # This checks if the exam WINDOW is still open (end_time)
     query = text("""
         SELECT e.id, e.title, e.description, e.start_time, e.end_time, e.duration_minutes
         FROM dbo.Exams e
-        WHERE GETDATE() <= e.end_time
+        WHERE GETUTCDATE() <= e.end_time
         AND e.id NOT IN (
             SELECT DISTINCT sa.exam_id 
             FROM dbo.StudentAnswers sa 
@@ -42,7 +40,7 @@ async def get_available_exams(
     return [dict(row._mapping) for row in rows]
 
 
-# ✅ CREATE EXAM
+# ✅ CREATE EXAM (FIXED AVAILABILITY WINDOW)
 @router.post("/create")
 async def create_exam(
     exam_data: dict,
@@ -58,21 +56,22 @@ async def create_exam(
         if created_by is None:
             raise HTTPException(status_code=401, detail="User ID not found in current_user")
 
-        # Extract duration from request (default to 60 if missing)
         duration = exam_data.get("duration_minutes", 60)
 
-        # Insert exam
+        # ✅ LOGIC CHANGE:
+        # duration_minutes = How long the student has to finish (e.g. 30 mins)
+        # end_time = When the exam disappears from the dashboard (e.g. 24 hours from now)
         exam_query = text("""
             INSERT INTO dbo.Exams (title, description, start_time, end_time, duration_minutes, created_by, created_at)
             OUTPUT INSERTED.id
             VALUES (
                 :title,
                 :description,
-                GETDATE(),
-                DATEADD(MINUTE, :duration, GETDATE()),
-                :duration,
+                GETUTCDATE(),
+                DATEADD(HOUR, 24, GETUTCDATE()), -- ✅ Available for 24 hours
+                :duration,                       -- ✅ Timer set by Invigilator
                 :created_by,
-                GETDATE()
+                GETUTCDATE()
             )
         """)
         exam_result = db.execute(
@@ -86,7 +85,6 @@ async def create_exam(
         )
         exam_id = exam_result.scalar()
 
-        # Insert MCQs
         for q in exam_data["questions"]:
             options = q["options"][:]
             while len(options) < 4:
@@ -120,7 +118,7 @@ async def create_exam(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ✅ GET QUESTIONS FOR AN EXAM
+# ✅ GET QUESTIONS
 @router.get("/{exam_id}/questions")
 async def get_exam_questions(
     exam_id: int,
@@ -141,7 +139,7 @@ async def get_exam_questions(
     return [dict(row._mapping) for row in rows]
 
 
-# ✅ SUBMIT ANSWERS (NEW ENDPOINT)
+# ✅ SUBMIT ANSWERS
 @router.post("/{exam_id}/submit")
 async def submit_exam_answers(
     exam_id: int,
@@ -149,7 +147,6 @@ async def submit_exam_answers(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # ✅ Get user ID
     user_id = (
         current_user.get("id")
         if isinstance(current_user, dict)
@@ -157,11 +154,10 @@ async def submit_exam_answers(
     )
     if not user_id:
         raise HTTPException(status_code=401, detail="User not found")
-    # ✅ Prevent empty submissions
+    
     if not request.answers:
         raise HTTPException(status_code=400, detail="No answers provided")
 
-    # ✅ Prevent multiple submissions
     existing_count = db.query(StudentAnswer).filter_by(
         user_id=user_id,
         exam_id=exam_id
@@ -169,7 +165,6 @@ async def submit_exam_answers(
     if existing_count > 0:
         raise HTTPException(status_code=400, detail="You have already submitted this exam")
 
-    # ✅ Save answers
     for ans in request.answers:
         mcq = (
             db.query(MCQ)
@@ -194,7 +189,8 @@ async def submit_exam_answers(
     db.commit()
     return {"status": "success", "message": "Answers saved"}
 
-# ✅ GET ALL EXAMS CREATED BY CURRENT INVIGILATOR
+
+# ✅ GET MY EXAMS
 @router.get("/my")
 async def get_my_exams(
     db: Session = Depends(get_db),
@@ -218,7 +214,7 @@ async def get_my_exams(
     return [dict(row._mapping) for row in rows]
 
 
-# ✅ COUNT‑ONLY VERSION
+# ✅ MY EXAM COUNT
 @router.get("/my/count")
 async def get_my_exam_count(
     db: Session = Depends(get_db),
@@ -237,7 +233,7 @@ async def get_my_exam_count(
     return {"total_exams_created": total_exams}
 
 
-# ✅ FULL LIST OF EXAMS CREATED
+# ✅ MY EXAM LIST
 @router.get("/list/my")
 async def get_my_exam_list(
     db: Session = Depends(get_db),
@@ -324,7 +320,7 @@ async def start_exam(
         if existing == 0:
             db.execute(text("""
                 INSERT INTO dbo.ActiveExams (user_id, exam_id, start_time)
-                VALUES (:uid, :eid, GETDATE())
+                VALUES (:uid, :eid, GETUTCDATE())
             """), {"uid": user_id, "eid": exam_id})
             db.commit()
 
@@ -333,12 +329,12 @@ async def start_exam(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ✅ ADMIN LIST ALL EXAMS
 @router.get("/admin/list")
 async def get_all_exams_status(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # Ensure only admin can access
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
     if role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can view all exams")
@@ -365,6 +361,7 @@ async def get_all_exams_status(
     return [dict(row._mapping) for row in rows]
 
 
+# ✅ GET SUBMITTED EXAMS
 @router.get("/submitted")
 async def get_submitted_exams(
     db: Session = Depends(get_db),
@@ -391,7 +388,7 @@ async def get_submitted_exams(
     return [dict(row._mapping) for row in rows]
 
 
-# ✅ NEW: GET STUDENT ANSWERS FOR AN EXAM (INVIGILATOR ONLY)
+# ✅ GET STUDENT ANSWERS
 @router.get("/{exam_id}/answers")
 async def get_student_answers(
     exam_id: int,
@@ -399,7 +396,6 @@ async def get_student_answers(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # Check if user is Admin or Invigilator
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
     
     if role not in ["invigilator", "admin"]:
@@ -414,12 +410,13 @@ async def get_student_answers(
     rows = db.execute(query, {"eid": exam_id, "uid": user_id}).fetchall()
     return [dict(row._mapping) for row in rows]
 
+
+# ✅ GET ACTIVE EXAMS
 @router.get("/active")
 async def get_active_exams(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Get all active exams (for admin/invigilator use)"""
     role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
     if role not in ["admin", "invigilator"]:
         raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
@@ -427,14 +424,15 @@ async def get_active_exams(
     query = text("""
         SELECT id, title, description, start_time, end_time, duration_minutes, created_by
         FROM Exams
-        WHERE GETDATE() BETWEEN start_time AND end_time
-        OR end_time > GETDATE()
+        WHERE GETUTCDATE() BETWEEN start_time AND end_time
+        OR end_time > GETUTCDATE()
         ORDER BY start_time ASC
     """)
     rows = db.execute(query).fetchall()
     return [dict(row._mapping) for row in rows]
 
 
+# ✅ GET EXAM DETAILS
 @router.get("/{exam_id}")
 async def get_exam(exam_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     query = text("""
@@ -445,23 +443,510 @@ async def get_exam(exam_id: int, db: Session = Depends(get_db), current_user=Dep
     row = db.execute(query, {"eid": exam_id}).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Exam not found")
-    return dict(row._mapping)
+    
+    exam_data = dict(row._mapping)
+    
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+    
+    if user_id:
+        active_query = text("""
+            SELECT start_time FROM dbo.ActiveExams 
+            WHERE user_id = :uid AND exam_id = :eid
+        """)
+        start_time = db.execute(active_query, {"uid": user_id, "eid": exam_id}).scalar()
+        if start_time:
+            exam_data["student_start_time"] = start_time.isoformat()
 
-# ✅ NEW: GET TOTAL EXAM COUNT (ALL EXAMS)
+    return exam_data
+
+
+# ✅ GET TOTAL EXAM COUNT
 @router.get("/count/all")
 async def get_total_exam_count(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """
-    Returns the total number of exams created by ALL users.
-    Only accessible to admins (and invigilators if needed).
-    """
     if current_user["role"] not in ["admin", "invigilator"]:
          raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
-        # Count ALL exams
+        count = db.execute(text("SELECT COUNT(*) FROM dbo.Exams")).scalar()
+        return {"count": count}
+
+    except Exception as e:
+        print(f"Error counting exams: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch exam count")# backend/exam.py
+from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from .database import get_db
+from .auth import get_current_user
+from backend.models import MCQ, StudentAnswer, ExamSubmitRequest
+from datetime import datetime
+
+router = APIRouter()
+
+# ✅ GET AVAILABLE EXAMS FOR STUDENTS
+@router.get("/available")
+async def get_available_exams(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "student":
+        raise HTTPException(status_code=403, detail="Only students can view available exams")
+
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found")
+
+    # This checks if the exam WINDOW is still open (end_time)
+    query = text("""
+        SELECT e.id, e.title, e.description, e.start_time, e.end_time, e.duration_minutes
+        FROM dbo.Exams e
+        WHERE GETUTCDATE() <= e.end_time
+        AND e.id NOT IN (
+            SELECT DISTINCT sa.exam_id 
+            FROM dbo.StudentAnswers sa 
+            WHERE sa.user_id = :user_id
+        )
+        ORDER BY e.start_time ASC
+    """)
+    rows = db.execute(query, {"user_id": user_id}).fetchall()
+
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ CREATE EXAM (FIXED AVAILABILITY WINDOW)
+@router.post("/create")
+async def create_exam(
+    exam_data: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    try:
+        created_by = (
+            current_user.get("id")
+            if isinstance(current_user, dict)
+            else getattr(current_user, "id", None)
+        )
+        if created_by is None:
+            raise HTTPException(status_code=401, detail="User ID not found in current_user")
+
+        duration = exam_data.get("duration_minutes", 60)
+
+        # ✅ LOGIC CHANGE:
+        # duration_minutes = How long the student has to finish (e.g. 30 mins)
+        # end_time = When the exam disappears from the dashboard (e.g. 24 hours from now)
+        exam_query = text("""
+            INSERT INTO dbo.Exams (title, description, start_time, end_time, duration_minutes, created_by, created_at)
+            OUTPUT INSERTED.id
+            VALUES (
+                :title,
+                :description,
+                GETUTCDATE(),
+                DATEADD(HOUR, 24, GETUTCDATE()), -- ✅ Available for 24 hours
+                :duration,                       -- ✅ Timer set by Invigilator
+                :created_by,
+                GETUTCDATE()
+            )
+        """)
+        exam_result = db.execute(
+            exam_query,
+            {
+                "title": exam_data["title"],
+                "description": exam_data.get("description") or f"Exam: {exam_data['title']}",
+                "duration": duration,
+                "created_by": created_by
+            }
+        )
+        exam_id = exam_result.scalar()
+
+        for q in exam_data["questions"]:
+            options = q["options"][:]
+            while len(options) < 4:
+                options.append("")
+            mcq_query = text("""
+                INSERT INTO dbo.MCQs
+                (exam_id, question, option_a, option_b, option_c, option_d, correct_option)
+                VALUES 
+                (:exam_id, :question, :opt_a, :opt_b, :opt_c, :opt_d, :correct)
+            """)
+            db.execute(
+                mcq_query,
+                {
+                    "exam_id": exam_id,
+                    "question": q["questionText"],
+                    "opt_a": options[0],
+                    "opt_b": options[1],
+                    "opt_c": options[2],
+                    "opt_d": options[3],
+                    "correct": q["correctAnswer"]
+                }
+            )
+
+        db.commit()
+        return {"status": "success", "message": "Exam created successfully", "exam_id": exam_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ✅ GET QUESTIONS
+@router.get("/{exam_id}/questions")
+async def get_exam_questions(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    query = text("""
+        SELECT id, question, option_a, option_b, option_c, option_d, correct_option
+        FROM dbo.MCQs
+        WHERE exam_id = :eid
+        ORDER BY id ASC
+    """)
+    rows = db.execute(query, {"eid": exam_id}).fetchall()
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="No questions found for this exam")
+
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ SUBMIT ANSWERS
+@router.post("/{exam_id}/submit")
+async def submit_exam_answers(
+    exam_id: int,
+    request: ExamSubmitRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    user_id = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    if not request.answers:
+        raise HTTPException(status_code=400, detail="No answers provided")
+
+    existing_count = db.query(StudentAnswer).filter_by(
+        user_id=user_id,
+        exam_id=exam_id
+    ).count()
+    if existing_count > 0:
+        raise HTTPException(status_code=400, detail="You have already submitted this exam")
+
+    for ans in request.answers:
+        mcq = (
+            db.query(MCQ)
+            .filter(MCQ.exam_id == exam_id)
+            .order_by(MCQ.id.asc())
+            .offset(ans.question_number - 1)
+            .limit(1)
+            .first()
+        )
+        if not mcq:
+            continue
+
+        new_answer = StudentAnswer(
+            user_id=user_id,
+            exam_id=exam_id,
+            question_id=mcq.id,
+            selected_option=ans.selected_option,
+            submitted_at=datetime.utcnow()
+        )
+        db.add(new_answer)
+
+    db.commit()
+    return {"status": "success", "message": "Answers saved"}
+
+
+# ✅ GET MY EXAMS
+@router.get("/my")
+async def get_my_exams(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    created_by = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    if created_by is None:
+        raise HTTPException(status_code=401, detail="User ID not found in current_user")
+
+    exams_query = text("""
+        SELECT id, title, description, start_time, end_time, duration_minutes, created_at
+        FROM dbo.Exams
+        WHERE created_by = :uid
+        ORDER BY created_at DESC
+    """)
+    rows = db.execute(exams_query, {"uid": created_by}).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ MY EXAM COUNT
+@router.get("/my/count")
+async def get_my_exam_count(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    created_by = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    if created_by is None:
+        raise HTTPException(status_code=401, detail="User ID not found in current_user")
+
+    count_query = text("SELECT COUNT(*) FROM dbo.Exams WHERE created_by = :uid")
+    total_exams = db.execute(count_query, {"uid": created_by}).scalar() or 0
+    return {"total_exams_created": total_exams}
+
+
+# ✅ MY EXAM LIST
+@router.get("/list/my")
+async def get_my_exam_list(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    created_by = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    if created_by is None:
+        raise HTTPException(status_code=401, detail="User ID not found in current_user")
+
+    exams_query = text("""
+        SELECT id, title, description, start_time, end_time, duration_minutes, created_at
+        FROM dbo.Exams
+        WHERE created_by = :uid
+        ORDER BY created_at DESC
+    """)
+    rows = db.execute(exams_query, {"uid": created_by}).fetchall()
+    return {"my_exams": [dict(row._mapping) for row in rows]}
+
+
+# ✅ DELETE EXAM
+@router.delete("/{exam_id}")
+async def delete_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+
+    if role != "invigilator":
+        raise HTTPException(status_code=403, detail="Only invigilators can delete exams")
+
+    result = db.execute(
+        text("SELECT id, created_by FROM dbo.Exams WHERE id = :eid"),
+        {"eid": exam_id}
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    if result.created_by != user_id:
+        raise HTTPException(status_code=403, detail="You can only delete your own exams")
+
+    try:
+        db.execute(text("DELETE FROM dbo.ActiveExams WHERE exam_id = :eid"), {"eid": exam_id})
+        db.execute(text("DELETE FROM dbo.StudentAnswers WHERE exam_id = :eid"), {"eid": exam_id})
+        db.execute(text("DELETE FROM dbo.MCQs WHERE exam_id = :eid"), {"eid": exam_id})
+        db.execute(text("DELETE FROM dbo.Exams WHERE id = :eid"), {"eid": exam_id})
+        db.commit()
+        return {"message": "Exam deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+
+# ✅ START EXAM
+@router.post("/{exam_id}/start")
+async def start_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    user_id = (
+        current_user.get("id")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "id", None)
+    )
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    if role != "student":
+        raise HTTPException(status_code=403, detail="Only students can start exams")
+
+    try:
+        existing = db.execute(text("""
+            SELECT COUNT(*) FROM dbo.ActiveExams
+            WHERE user_id = :uid AND exam_id = :eid
+        """), {"uid": user_id, "eid": exam_id}).scalar()
+
+        if existing == 0:
+            db.execute(text("""
+                INSERT INTO dbo.ActiveExams (user_id, exam_id, start_time)
+                VALUES (:uid, :eid, GETUTCDATE())
+            """), {"uid": user_id, "eid": exam_id})
+            db.commit()
+
+        return {"status": "success", "message": "Exam started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ✅ ADMIN LIST ALL EXAMS
+@router.get("/admin/list")
+async def get_all_exams_status(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can view all exams")
+
+    query = text("""
+        SELECT 
+            e.id, 
+            e.title, 
+            e.created_at,
+            u.id AS student_id,
+            u.username,
+            CASE 
+                WHEN EXISTS (SELECT 1 FROM dbo.StudentAnswers sa WHERE sa.exam_id = e.id AND sa.user_id = u.id) 
+                THEN 'Completed' 
+                ELSE 'Pending' 
+            END AS status
+        FROM dbo.Exams e
+        CROSS JOIN dbo.Users u
+        WHERE u.role = 'student'
+        ORDER BY e.created_at DESC, u.username
+    """)
+
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ GET SUBMITTED EXAMS
+@router.get("/submitted")
+async def get_submitted_exams(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role != "invigilator":
+        raise HTTPException(status_code=403, detail="Only invigilators can view submissions")
+
+    query = text("""
+        SELECT 
+            sa.exam_id,
+            e.title AS exam_title,
+            u.username AS student_username,
+            u.id AS student_id,
+            sa.submitted_at
+        FROM StudentAnswers sa
+        JOIN Exams e ON sa.exam_id = e.id
+        JOIN Users u ON sa.user_id = u.id
+        WHERE sa.submitted_at IS NOT NULL
+        ORDER BY sa.submitted_at DESC
+    """)
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ GET STUDENT ANSWERS
+@router.get("/{exam_id}/answers")
+async def get_student_answers(
+    exam_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    
+    if role not in ["invigilator", "admin"]:
+        raise HTTPException(status_code=403, detail="Access denied. Only staff can view answers.")
+
+    query = text("""
+        SELECT sa.question_id, sa.selected_option, sa.submitted_at
+        FROM StudentAnswers sa
+        WHERE sa.exam_id = :eid AND sa.user_id = :uid
+        ORDER BY sa.question_id ASC
+    """)
+    rows = db.execute(query, {"eid": exam_id, "uid": user_id}).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ GET ACTIVE EXAMS
+@router.get("/active")
+async def get_active_exams(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if role not in ["admin", "invigilator"]:
+        raise HTTPException(status_code=403, detail="Admin/Invigilator access required")
+
+    query = text("""
+        SELECT id, title, description, start_time, end_time, duration_minutes, created_by
+        FROM Exams
+        WHERE GETUTCDATE() BETWEEN start_time AND end_time
+        OR end_time > GETUTCDATE()
+        ORDER BY start_time ASC
+    """)
+    rows = db.execute(query).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+# ✅ GET EXAM DETAILS
+@router.get("/{exam_id}")
+async def get_exam(exam_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    query = text("""
+        SELECT e.id, e.title, e.start_time, e.end_time, e.duration_minutes
+        FROM Exams e
+        WHERE e.id = :eid
+    """)
+    row = db.execute(query, {"eid": exam_id}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    
+    exam_data = dict(row._mapping)
+    
+    user_id = current_user.get("id") if isinstance(current_user, dict) else getattr(current_user, "id", None)
+    
+    if user_id:
+        active_query = text("""
+            SELECT start_time FROM dbo.ActiveExams 
+            WHERE user_id = :uid AND exam_id = :eid
+        """)
+        start_time = db.execute(active_query, {"uid": user_id, "eid": exam_id}).scalar()
+        if start_time:
+            exam_data["student_start_time"] = start_time.isoformat()
+
+    return exam_data
+
+
+# ✅ GET TOTAL EXAM COUNT
+@router.get("/count/all")
+async def get_total_exam_count(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if current_user["role"] not in ["admin", "invigilator"]:
+         raise HTTPException(status_code=403, detail="Not authorized")
+
+    try:
         count = db.execute(text("SELECT COUNT(*) FROM dbo.Exams")).scalar()
         return {"count": count}
 
