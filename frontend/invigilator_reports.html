@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <title>Received Reports - Invigilator</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/invigilator.css"> <style>
+  <link rel="stylesheet" href="css/invigilator.css"> 
+  <style>
     /* Table & Page specific styles */
     .table-container {
         background-color: #1e253f;
@@ -55,6 +56,50 @@
     }
     .btn-download:hover {
         background-color: #4c35de;
+    }
+
+    /* --- NEW SEARCH BAR STYLES --- */
+    .search-container {
+        margin-bottom: 0;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    .search-box {
+        background-color: #1e253f;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        max-width: 350px; /* Keeps it compact */
+        transition: border-color 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .search-box:focus-within {
+        border-color: #5840d8;
+    }
+
+    .search-box i {
+        color: #a0aec0;
+        margin-right: 10px;
+        font-size: 14px;
+    }
+
+    .search-input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: #e2e8f0;
+        width: 100%;
+        font-size: 14px;
+    }
+
+    .search-input::placeholder {
+        color: #718096;
     }
 
     /* --- MODAL STYLES (Consistent) --- */
@@ -206,6 +251,13 @@
             <h2><i class="fa-solid fa-inbox"></i> Received Reports</h2>
             <p style="color: #a0aec0; margin-bottom: 20px;">Reports sent by Admin regarding suspicious student activities.</p>
             
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search by Student, Exam or ID...">
+                </div>
+            </div>
+
             <div class="table-container">
                 <table id="reportsTable">
                     <thead>
@@ -243,6 +295,9 @@
         const token = localStorage.getItem("token");
         const role = (localStorage.getItem('role') || '').toLowerCase();
         const username = localStorage.getItem('username') || 'Invigilator';
+        
+        // Global variable to store data for filtering
+        let allReports = [];
 
         if (!token || role !== 'invigilator') {
             window.location.href = "login.html";
@@ -257,12 +312,12 @@
         function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
         function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-        // Close modal on outside click
         window.onclick = function(event) {
           const logoutModal = document.getElementById('logoutModal');
           if (event.target == logoutModal) closeLogoutModal();
         }
 
+        // --- Fetch Data ---
         async function loadReports() {
             const tbody = document.getElementById("reportsBody");
             tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 20px;'>Loading...</td></tr>";
@@ -275,44 +330,75 @@
                 if (!res.ok) throw new Error("Failed to fetch reports");
 
                 const reports = await res.json();
-                tbody.innerHTML = "";
+                
+                // Store fetched data globally
+                allReports = reports;
 
-                if (reports.length === 0) {
-                    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 20px;'>No reports received yet.</td></tr>";
-                    return;
-                }
-
-                reports.forEach(r => {
-                    const date = new Date(r.sent_at).toLocaleString();
-                    const downloadLink = `http://localhost:8000/uploaded_reports/${r.report_file_path}`;
-
-                    const row = `
-                        <tr>
-                            <td>${date}</td>
-                            <td>
-                                <strong style="color:white;">${r.student_name}</strong><br>
-                                <span style="font-size:0.85em; color:#a0aec0;">ID: ${r.student_id}</span>
-                            </td>
-                            <td>
-                                <strong style="color:white;">${r.exam_title}</strong><br>
-                                <span style="font-size:0.85em; color:#a0aec0;">ID: ${r.exam_id}</span>
-                            </td>
-                            <td>Admin: ${r.sender_name}</td>
-                            <td>
-                                <a href="${downloadLink}" target="_blank" class="btn-download">
-                                    <i class="fa-solid fa-download"></i> Download PDF
-                                </a>
-                            </td>
-                        </tr>
-                    `;
-                    tbody.innerHTML += row;
-                });
+                // Render all data initially
+                renderTable(allReports);
 
             } catch (err) {
                 console.error(err);
                 tbody.innerHTML = `<tr><td colspan='5' style="color:#ef4444; text-align:center; padding:20px;">Error: ${err.message}</td></tr>`;
             }
         }
+
+        // --- Render Table Function ---
+        function renderTable(data) {
+            const tbody = document.getElementById("reportsBody");
+            tbody.innerHTML = "";
+
+            if (data.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding: 20px; color: #a0aec0;'>No matching reports found.</td></tr>";
+                return;
+            }
+
+            data.forEach(r => {
+                const date = new Date(r.sent_at).toLocaleString();
+                const downloadLink = `http://localhost:8000/uploaded_reports/${r.report_file_path}`;
+
+                const row = `
+                    <tr>
+                        <td>${date}</td>
+                        <td>
+                            <strong style="color:white;">${r.student_name}</strong><br>
+                            <span style="font-size:0.85em; color:#a0aec0;">ID: ${r.student_id}</span>
+                        </td>
+                        <td>
+                            <strong style="color:white;">${r.exam_title}</strong><br>
+                            <span style="font-size:0.85em; color:#a0aec0;">ID: ${r.exam_id}</span>
+                        </td>
+                        <td>Admin: ${r.sender_name}</td>
+                        <td>
+                            <a href="${downloadLink}" target="_blank" class="btn-download">
+                                <i class="fa-solid fa-download"></i> Download PDF
+                            </a>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // --- Search/Filter Logic ---
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            
+            const filteredData = allReports.filter(r => {
+                // Convert IDs to string for comparison
+                const sName = (r.student_name || "").toLowerCase();
+                const eTitle = (r.exam_title || "").toLowerCase();
+                const sId = String(r.student_id || "");
+                const eId = String(r.exam_id || "");
+
+                return sName.includes(searchTerm) || 
+                       eTitle.includes(searchTerm) || 
+                       sId.includes(searchTerm) || 
+                       eId.includes(searchTerm);
+            });
+
+            renderTable(filteredData);
+        });
 
         loadReports();
     </script>

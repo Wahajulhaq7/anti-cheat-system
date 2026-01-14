@@ -69,6 +69,74 @@
         padding: 30px;
     }
 
+    /* --- NEW FILTER STYLES (Matches Theme) --- */
+    .filter-container {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 0; /* Just above the table container */
+        background-color: #1e253f;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .search-group {
+        display: flex;
+        align-items: center;
+        background-color: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        padding: 8px 12px;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-group i {
+        color: #a0aec0;
+        margin-right: 10px;
+        font-size: 14px;
+    }
+
+    .filter-input {
+        background: transparent;
+        border: none;
+        color: #e2e8f0;
+        width: 100%;
+        font-size: 14px;
+        outline: none;
+    }
+
+    .filter-input::placeholder {
+        color: #718096;
+    }
+
+    /* Custom Date Input Styling */
+    input[type="date"] {
+        color-scheme: dark; /* Forces dark calendar icon in supported browsers */
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1) opacity(0.6);
+        cursor: pointer;
+    }
+
+    .btn-reset {
+        background-color: #4a5568;
+        color: #e2e8f0;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.2s;
+    }
+    
+    .btn-reset:hover {
+        background-color: #718096;
+    }
+
     /* --- MODAL STYLES (Consistent) --- */
     .modal { 
         display: none; 
@@ -216,6 +284,23 @@
 <div class="dashboard-container">
   <section>
       <h2><i class="fa-solid fa-list-check"></i> Student Submissions</h2>
+      
+      <div class="filter-container">
+          <div class="search-group">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="searchInput" class="filter-input" placeholder="Search by Student or Exam Title...">
+          </div>
+          
+          <div class="search-group" style="flex: 0 0 200px;">
+              <i class="fa-solid fa-calendar"></i>
+              <input type="date" id="dateInput" class="filter-input">
+          </div>
+
+          <button onclick="resetFilters()" class="btn-reset">
+              <i class="fa-solid fa-rotate-left"></i> Reset
+          </button>
+      </div>
+
       <div class="table-container">
           <table class="min-w-full">
               <thead>

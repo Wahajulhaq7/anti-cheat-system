@@ -7,7 +7,75 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/invigilator.css" />
   <style>
-    /* --- MODAL STYLES (Consistent) --- */
+    /* --- FILTER STYLES (Matches Theme) --- */
+    .filter-container {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        background-color: #1e253f;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .search-group {
+        display: flex;
+        align-items: center;
+        background-color: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        padding: 8px 12px;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-group i {
+        color: #a0aec0;
+        margin-right: 10px;
+        font-size: 14px;
+    }
+
+    .filter-input {
+        background: transparent;
+        border: none;
+        color: #e2e8f0;
+        width: 100%;
+        font-size: 14px;
+        outline: none;
+    }
+
+    .filter-input::placeholder {
+        color: #718096;
+    }
+
+    /* Custom Date Input Styling */
+    input[type="date"] {
+        color-scheme: dark;
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1) opacity(0.6);
+        cursor: pointer;
+    }
+
+    .btn-reset {
+        background-color: #4a5568;
+        color: #e2e8f0;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.2s;
+    }
+    
+    .btn-reset:hover {
+        background-color: #718096;
+    }
+
+    /* --- MODAL STYLES --- */
     .modal { 
         display: none; 
         position: fixed; 
@@ -35,23 +103,20 @@
         flex-direction: column; 
     }
 
-    /* --- Image Modal Specific Override --- */
+    /* Image Modal Specific Override */
     #imageModal .modal-content {
         width: 80%;
-        max-width: 800px; /* Wider for image viewing */
+        max-width: 800px;
+        background-color: #1a1a1a;
     }
 
     #modalImage {
         width: 100%;
-        max-height: 60vh;
+        max-height: 70vh;
         object-fit: contain;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        margin-bottom: 15px;
         background: #000;
     }
     
-    /* Header Styles */
     .card-header-modal { 
         background: #5840d8; 
         color: white; 
@@ -79,6 +144,12 @@
         flex-direction: column; 
         align-items: center; 
     }
+
+    /* Fix modal body for image modal to match dark theme better */
+    #imageModal .modal-body {
+        background: #1a1a1a;
+        padding: 10px;
+    }
     
     .modal-body p { 
         color: #4a5568; 
@@ -97,7 +168,6 @@
         margin-top: 10px; 
     }
     
-    /* Buttons - Centering Fix */
     .btn-confirm-logout { 
         background-color: #5840d8; 
         color: white; 
@@ -171,8 +241,25 @@
 <div class="dashboard-container">
   <section>
     <h2><i class="fa-solid fa-camera-retro"></i> All Flagged Activities</h2>
+    
+    <div class="filter-container">
+        <div class="search-group">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" class="filter-input" placeholder="Search by Student Name, ID, or Exam ID...">
+        </div>
+        
+        <div class="search-group" style="flex: 0 0 200px;">
+            <i class="fa-solid fa-calendar"></i>
+            <input type="date" id="dateInput" class="filter-input">
+        </div>
+
+        <button onclick="resetFilters()" class="btn-reset">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+        </button>
+    </div>
+
     <div id="detections-container" class="detections-grid">
-      <p class="placeholder"><i class="fa-solid fa-spinner fa-spin"></i> Loading detections...</p>
+      <p class="placeholder" style="color: #a0aec0; text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Loading detections...</p>
     </div>
   </section>
 </div>
@@ -218,7 +305,7 @@
   function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
   function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-  // --- Image Modal Logic (Called by js/unusual.js) ---
+  // --- Image Modal Logic ---
   function openImageModal(imageUrl) {
     const modal = document.getElementById('imageModal');
     const img = document.getElementById('modalImage');
@@ -228,7 +315,7 @@
 
   function closeImageModal() {
     document.getElementById('imageModal').style.display = 'none';
-    document.getElementById('modalImage').src = ""; // Clear src
+    document.getElementById('modalImage').src = ""; 
   }
 
   // Close modals on outside click

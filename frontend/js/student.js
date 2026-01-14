@@ -1,5 +1,8 @@
 // frontend/js/student.js
 
+// Global variable to store data for filtering
+let allResults = [];
+
 /**
  * Check authentication and redirect if not a student
  */
@@ -34,7 +37,7 @@ function displayUsername() {
 }
 
 /**
- * Load student results (Updated for Table Layout)
+ * Load student results
  */
 async function loadResults() {
   const user_id = localStorage.getItem("user_id");
@@ -67,8 +70,30 @@ async function loadResults() {
       return;
     }
 
-    // Render Table Rows
-    tbody.innerHTML = reports.map(r => {
+    // Store globally for filtering
+    allResults = reports;
+    
+    // Initial Render
+    renderResults(allResults);
+
+  } catch (err) {
+    console.error("Error loading results:", err);
+    tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>Network error. Could not load results.</td></tr>";
+  }
+}
+
+/**
+ * Render Results Table
+ */
+function renderResults(data) {
+    const tbody = document.getElementById("resultsBody");
+    
+    if (data.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>No matching exams found.</td></tr>";
+        return;
+    }
+
+    tbody.innerHTML = data.map(r => {
       const scorePercent = r.total_answered > 0 
         ? ((r.correct_count / r.total_answered) * 100).toFixed(1) 
         : 0;
@@ -99,11 +124,19 @@ async function loadResults() {
         </tr>
       `;
     }).join("");
+}
 
-  } catch (err) {
-    console.error("Error loading results:", err);
-    tbody.innerHTML = "<tr><td colspan='5' class='placeholder'>Network error. Could not load results.</td></tr>";
-  }
+/**
+ * Filter Results Logic
+ */
+function filterResults() {
+    const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
+    
+    const filtered = allResults.filter(r => 
+        (r.exam_title || "").toLowerCase().includes(searchTerm)
+    );
+    
+    renderResults(filtered);
 }
 
 /**
@@ -115,42 +148,35 @@ function logout() {
 }
 
 /**
- * ✅ CHECK FACE REGISTRATION (Updated)
- * - If 404: Open Modal
- * - If 200: Disable "Register" Button
+ * CHECK FACE REGISTRATION
  */
 async function checkFaceRegistration() {
     const user_id = localStorage.getItem("user_id");
     if (!user_id) return;
 
     try {
-        // Try to fetch the profile image
         const res = await fetch(`http://localhost:8000/uploads/profiles/${user_id}.jpg`, {
             method: 'HEAD',
             cache: 'no-store'
         });
 
-        const regButton = document.querySelector(".btn-face-auth"); // Find the button
+        const regButton = document.querySelector(".btn-face-auth");
 
         if (res.status === 200) {
-            // ✅ Image Exists -> Disable Button
             if (regButton) {
                 regButton.disabled = true;
                 regButton.innerHTML = '<i class="fa-solid fa-check-circle"></i> Face Registered';
-                regButton.style.backgroundColor = "#2f855a"; // Green color
+                regButton.style.backgroundColor = "#2f855a";
                 regButton.style.cursor = "default";
-                regButton.onclick = null; // Prevent clicking
+                regButton.onclick = null;
             }
         } 
         else if (res.status === 404) {
-            // ❌ Image Missing -> Open Modal
             console.log("No Face ID found. Opening registration modal.");
-            
             const msg = document.querySelector("#faceModal .modal-body p");
             if(msg) {
                 msg.innerHTML = "<strong style='color:#e53e3e'>⚠️ Face ID Required</strong><br>You have not registered your face yet.<br>Please capture a clear photo to continue. Remove any obstructions like glasses or hats!!";
             }
-            
             openFaceModal();
         }
     } catch (err) {
@@ -165,24 +191,28 @@ window.onload = () => {
   if (!checkAuth()) return;
   displayUsername();
   
-  // Call loadResults only if on student.html (results page)
+  // Initialize Search Listener
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) {
+      searchInput.addEventListener("input", filterResults);
+  }
+
   if (document.getElementById("resultsBody")) {
     loadResults();
   }
 
-  // ✅ Trigger the check
   checkFaceRegistration();
 };
 
 // ============================================================
-// 📸 FACE REGISTRATION LOGIC
+// FACE REGISTRATION LOGIC
 // ============================================================
 let faceStream = null;
 
 async function openFaceModal() {
     const modal = document.getElementById('faceModal');
     const video = document.getElementById('facePreview');
-    const btn = document.getElementById('btnCapture'); // Reset button state
+    const btn = document.getElementById('btnCapture');
     
     if(btn) {
         btn.disabled = false;
@@ -192,7 +222,6 @@ async function openFaceModal() {
     modal.style.display = 'flex';
 
     try {
-        // Start Webcam
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         faceStream = stream;
         video.srcObject = stream;
@@ -207,7 +236,6 @@ function closeFaceModal() {
     const modal = document.getElementById('faceModal');
     modal.style.display = 'none';
 
-    // Stop Webcam
     if (faceStream) {
         faceStream.getTracks().forEach(track => track.stop());
         faceStream = null;
@@ -221,21 +249,17 @@ async function captureAndRegister() {
 
     if (!video.srcObject) return;
 
-    // 1. Draw video frame to canvas
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 2. Convert to Blob (Image File)
     canvas.toBlob(async (blob) => {
         if (!blob) return;
 
-        // 3. Prepare Form Data
         const formData = new FormData();
         formData.append("file", blob, "face.jpg");
 
-        // UI Feedback
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
 
@@ -248,10 +272,10 @@ async function captureAndRegister() {
             });
 
             if (res.ok) {
-                alert("✅ Face ID Registered Successfully!");
-                closeFaceModal(); // Close modal
+                // Replaced alert with custom modal
+                closeFaceModal(); 
+                openSuccessModal(); // <--- NEW SUCCESS MODAL TRIGGER
                 
-                // ✅ UPDATE BUTTON STATE INSTANTLY WITHOUT RELOAD
                 const regButton = document.querySelector(".btn-face-auth");
                 if (regButton) {
                     regButton.disabled = true;
@@ -269,7 +293,7 @@ async function captureAndRegister() {
             console.error(error);
             alert("❌ Network Error");
         } finally {
-            if (btn && !btn.disabled) { // Only reset if failed
+            if (btn && !btn.disabled) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture';
             }

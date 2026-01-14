@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css" />
   <style>
-    /* --- NAVBAR & BUTTON STYLES (Fixing Layout) --- */
+    /* --- NAVBAR & BUTTON STYLES --- */
     .nav-bar {
         display: flex;
         justify-content: space-between;
@@ -33,7 +33,6 @@
         gap: 15px;
     }
 
-    /* Standard Nav Button */
     .btn-nav {
         background: transparent;
         color: #a0aec0;
@@ -47,7 +46,7 @@
         align-items: center;
         gap: 8px;
         transition: all 0.2s;
-        text-decoration: none; /* In case it's an anchor */
+        text-decoration: none;
     }
 
     .btn-nav:hover {
@@ -74,9 +73,8 @@
         gap: 8px;
     }
 
-    /* --- FIXED LOGOUT BUTTON --- */
     .btn-logout {
-        background-color: #ef4444; /* Red */
+        background-color: #ef4444;
         color: white;
         border: none;
         padding: 8px 16px;
@@ -86,7 +84,7 @@
         font-weight: 600;
         display: flex;
         align-items: center;
-        gap: 8px; /* Space between icon and text */
+        gap: 8px;
         transition: background 0.2s;
     }
 
@@ -94,7 +92,59 @@
         background-color: #dc2626;
     }
 
-    /* --- MODAL STYLES (Consistent) --- */
+    /* --- CORRECTED SEARCH BAR STYLES (Fixed Overlap) --- */
+    .search-row {
+        margin-top: 15px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    .search-box {
+        position: relative;
+        width: 280px; /* Slightly wider */
+    }
+
+    /* Icon Styling */
+    .search-box i {
+        position: absolute;
+        left: 15px;           /* Fixed position from left */
+        top: 50%;
+        transform: translateY(-50%); /* Center vertically */
+        color: #a0aec0;
+        font-size: 15px;
+        pointer-events: none; /* Allows clicking through the icon */
+        z-index: 2;           /* Ensure icon is on top */
+    }
+
+    /* Input Styling - Using ID for higher priority */
+    #searchInput {
+        width: 100%;
+        background-color: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        
+        /* FORCE PADDING: 45px on left to clear the icon */
+        padding: 10px 10px 10px 45px !important; 
+        
+        color: #e2e8f0;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+        height: 42px; /* Fixed height for consistency */
+    }
+
+    #searchInput:focus {
+        border-color: #5840d8;
+        box-shadow: 0 0 0 1px #5840d8;
+    }
+    
+    #searchInput::placeholder {
+        color: #718096;
+    }
+
+    /* --- MODAL STYLES --- */
     .modal { 
         display: none; 
         position: fixed; 
@@ -103,7 +153,7 @@
         top: 0; 
         width: 100%; 
         height: 100%; 
-        background-color: rgba(0,0,0,0.85); /* Darker background to focus attention */
+        background-color: rgba(0,0,0,0.85);
         justify-content: center; 
         align-items: center; 
         backdrop-filter: blur(5px); 
@@ -168,7 +218,6 @@
         margin-top: 10px; 
     }
     
-    /* Buttons - Centering Fix */
     .btn-confirm-logout { 
         background-color: #5840d8; 
         color: white; 
@@ -205,9 +254,8 @@
     }
     .btn-cancel:hover { background-color: #5a6268; }
 
-    /* New Button Style for Face Auth */
     .btn-face-auth {
-        background-color: #2b6cb0; /* Blue */
+        background-color: #2b6cb0;
         color: white;
         border: none;
         padding: 10px 20px;
@@ -217,6 +265,17 @@
         transition: 0.2s;
     }
     .btn-face-auth:hover { background-color: #2c5282; }
+
+    /* Success Modal specific styles */
+    #successModal .card-header-modal {
+        background: #2f855a; /* Green */
+    }
+    #successModal .btn-confirm-logout {
+        background-color: #2f855a;
+    }
+    #successModal .btn-confirm-logout:hover {
+        background-color: #276749;
+    }
   </style>
 </head>
 <body>
@@ -244,6 +303,13 @@
         <button onclick="openFaceModal(false)" class="btn-face-auth">
             <i class="fa-solid fa-face-viewfinder"></i> Register Face ID
         </button>
+      </div>
+
+      <div class="search-row">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" class="search-input" placeholder="Search Exam Name...">
+        </div>
       </div>
 
       <div class="table-container">
@@ -306,6 +372,25 @@
     </div>
   </div>
 
+  <div id="successModal" class="modal">
+    <div class="modal-content">
+      <div class="card-header-modal">
+        <h3><i class="fa-solid fa-check-circle"></i> Success</h3>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 16px; color: #2f855a; font-weight: 600;">
+          Face ID Registered Successfully!
+        </p>
+        <p style="font-size: 14px; color: #4a5568;">
+          You can now proceed with your exams.
+        </p>
+        <div class="modal-actions">
+          <button onclick="closeSuccessModal()" class="btn-confirm-logout">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/student.js"></script>
   <script>
     // --- Navbar Username Logic ---
@@ -318,11 +403,16 @@
     function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
     function confirmLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-    // --- Close modal on outside click (ONLY for Logout, NOT for Face Modal) ---
+    // --- Success Modal Logic ---
+    function openSuccessModal() { document.getElementById('successModal').style.display = 'flex'; }
+    function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
+
+    // --- Close modal on outside click ---
     window.onclick = function(event) {
       const logoutModal = document.getElementById('logoutModal');
-      // Only close logout modal on outside click. Face modal is now mandatory if triggered automatically.
+      const successModal = document.getElementById('successModal');
       if (event.target == logoutModal) closeLogoutModal();
+      if (event.target == successModal) closeSuccessModal();
     }
   </script>
 </body>
