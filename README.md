@@ -127,9 +127,9 @@ pip install -r requirements.txt
 ### 3. Database Configuration
 Edit `config.py`:
 ```python
-DB_SERVER = "localhost"
+DB_SERVER = "yourserver"
 DB_NAME = "AntiCheatDB"
-DB_USER = "sa"
+DB_USER = "yourpassword"
 DB_PASS = "YourStrong@Pass123"
 ```
 
